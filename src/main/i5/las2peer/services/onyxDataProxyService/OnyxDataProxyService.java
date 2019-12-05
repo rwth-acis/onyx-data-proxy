@@ -21,7 +21,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import i5.las2peer.api.Context;
@@ -33,6 +32,7 @@ import i5.las2peer.services.onyxDataProxyService.parser.AssessmentMetadataParser
 import i5.las2peer.services.onyxDataProxyService.parser.AssessmentResultParser;
 import i5.las2peer.services.onyxDataProxyService.parser.AssessmentTestParser;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.AssessmentResult;
+import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ItemResult;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentTest.AssessmentTest;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentMetadata;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentUser;
@@ -78,6 +78,7 @@ public class OnyxDataProxyService extends RESTService {
 	public Map<String, String> getCustomMessageDescriptions() {
 		Map<String, String> descriptions = new HashMap<>();
 		descriptions.put("SERVICE_CUSTOM_MESSAGE_1", "Sent assessment result to lrs.");
+		descriptions.put("SERVICE_CUSTOM_MESSAGE_2", "Sent item result of an assessment to lrs.");
 		descriptions.put("SERVICE_CUSTOM_ERROR_1", "Cannot delete processed files.");
 		return descriptions;
 	}
@@ -99,7 +100,9 @@ public class OnyxDataProxyService extends RESTService {
 		ZipHelper.extractFiles(fileInputStream, "tmp");
 		File dir = new File("tmp");
 		File[] directoryListing = dir.listFiles();
-		JSONArray ars = new JSONArray();
+		JSONObject result = new JSONObject();
+		result.put("assessments", 0);
+		result.put("items", 0);
 		AssessmentMetadata am = null;
 		AssessmentTest assessmentTest = null;
 		for (File child : directoryListing) {
@@ -148,7 +151,13 @@ public class OnyxDataProxyService extends RESTService {
 						JSONObject xApiStatement = StatementBuilder.createAssessmentResultStatement(assessmentTest, ar,
 								user, am);
 						Context.get().monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_1, xApiStatement.toString());
-						ars.put(xApiStatement);
+						result.put("assessments", result.getInt("assessments") + 1);
+						for (ItemResult ir : ar.getItemResults()) {
+							xApiStatement = StatementBuilder.createItemResultStatement(assessmentTest, ir, user, am);
+							Context.get().monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_2,
+									xApiStatement.toString());
+							result.put("items", result.getInt("items") + 1);
+						}
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -170,7 +179,7 @@ public class OnyxDataProxyService extends RESTService {
 		} catch (IOException e) {
 			Context.get().monitorEvent(MonitoringEvent.SERVICE_CUSTOM_ERROR_1, e.getMessage());
 		}
-		return Response.ok().entity(ars.toString()).build();
+		return Response.ok().entity(result.toString()).build();
 
 	}
 
