@@ -15,7 +15,7 @@
         <dependency org="junit" name="junit" rev="4.12" conf="platform->*" />
 
         <!-- https://mvnrepository.com/artifact/org.json/json -->
-        <dependency org="org.json" name="json" rev="20180813" conf="platform->*"/>
+        <dependency org="org.json" name="json" rev="20190722" conf="platform->*"/>
         
         <!-- service dependencies -->
         <!-- Add service dependencies here -->
