@@ -17,7 +17,7 @@ public class StatementBuilder {
 		actor.put("name", user.getFirstName() + " " + user.getLastName());
 		JSONObject account = new JSONObject();
 		// TODO Fix identifier
-		account.put("name", user.getFirstName() + user.getLastName());
+		account.put("name", user.getEmail());
 		account.put("homePage", homePage);
 		actor.put("account", account);
 		return actor;

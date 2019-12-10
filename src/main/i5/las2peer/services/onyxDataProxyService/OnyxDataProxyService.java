@@ -5,6 +5,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.List;
@@ -16,12 +18,15 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
+import org.json.JSONTokener;
 
 import i5.las2peer.api.Context;
 import i5.las2peer.api.ManualDeployment;
@@ -86,18 +91,18 @@ public class OnyxDataProxyService extends RESTService {
 	/**
 	 * Add an assessment.
 	 *
-	 * @param fileInputStream zip with xml files of the assessment.
-	 * @param fileFormDataContentDisposition zip with xml files of the assessment.
-	 * @return JSON encoded assessment object.
+	 * @param zipInputStream zip with xml files of the assessment.
+	 * @param jsonInputStream json with email to xml mapping.
+	 * @return JSON object with parsing statistics.
 	 */
 	@POST
 	@Path("/assessments")
 	@Produces(MediaType.APPLICATION_JSON)
 	@Consumes(MediaType.MULTIPART_FORM_DATA)
 	// @RolesAllowed("authenticated")
-	public Response addAssessment(@FormDataParam("uploadFile") InputStream fileInputStream,
-			@FormDataParam("uploadFile") FormDataContentDisposition fileFormDataContentDisposition) {
-		ZipHelper.extractFiles(fileInputStream, "tmp");
+	public Response addAssessment(@FormDataParam("assessment") InputStream zipInputStream,
+			@FormDataParam("mapping") InputStream jsonInputStream) {
+		ZipHelper.extractFiles(zipInputStream, "tmp");
 		File dir = new File("tmp");
 		File[] directoryListing = dir.listFiles();
 		JSONObject result = new JSONObject();
@@ -105,6 +110,19 @@ public class OnyxDataProxyService extends RESTService {
 		result.put("items", 0);
 		AssessmentMetadata am = null;
 		AssessmentTest assessmentTest = null;
+		JSONArray studentMappings = null;
+		try {
+			JSONTokener tokener = new JSONTokener(new InputStreamReader(jsonInputStream, "UTF-8"));
+			studentMappings = new JSONArray(tokener);
+		} catch (UnsupportedEncodingException e1) {
+			e1.printStackTrace();
+			return Response.status(Status.BAD_REQUEST)
+					.entity("Student mapping uses an unsupported Encoding: " + e1.getMessage()).build();
+		} catch (JSONException e1) {
+			e1.printStackTrace();
+			return Response.status(Status.BAD_REQUEST).entity("Error while parsing student mapping: " + e1.getMessage())
+					.build();
+		}
 		for (File child : directoryListing) {
 			if (child.getName().endsWith(".zip")) {
 				try {
@@ -118,61 +136,59 @@ public class OnyxDataProxyService extends RESTService {
 					String assessmentRaw = new String(Files.readAllBytes(assessmentRawFile.toPath()));
 					assessmentTest = AssessmentTestParser.parseAssessmentTest(assessmentRaw);
 				} catch (FileNotFoundException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
+					return Response.status(Status.BAD_REQUEST).entity("Assessment meta data not found.").build();
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
+					return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
 				} catch (Exception e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
+					return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
 				}
 			}
 		}
+		for (Object mapping : studentMappings) {
+			if (mapping instanceof JSONObject) {
+				JSONObject mappingJSON = (JSONObject) mapping;
+				String onyxResultFilename = mappingJSON.getString("onyxResultFilename");
+				String email = mappingJSON.getString("email");
+				File onyxFile = new File("tmp/" + onyxResultFilename);
 
-		for (File child : directoryListing) {
-			if (child.getName().endsWith(".xml")) {
 				String xml;
 				try {
-					xml = new String(Files.readAllBytes(child.toPath()));
+					xml = new String(Files.readAllBytes(onyxFile.toPath()));
 					AssessmentResult ar = AssessmentResultParser.parseAssessmentResult(xml);
-					try {
-						String nameWithoutPath = child.getAbsolutePath();
-						nameWithoutPath = nameWithoutPath.substring(0, nameWithoutPath.lastIndexOf('.'));
-						java.nio.file.Path htmlFile = (new File(nameWithoutPath + ".html")).toPath();
-						List<String> lines = Files.readAllLines(htmlFile);
-						String first = StringUtils.substringBetween(lines.get(205), "</td><td class=\"first\">",
-								"</td>");
-						String last = StringUtils.substringBetween(lines.get(205), "</td><td class=\"last\">", "</td>");
-						AssessmentUser user = new AssessmentUser();
-						user.setFirstName(first);
-						user.setLastName(last);
+					String nameWithoutPath = onyxFile.getAbsolutePath();
+					nameWithoutPath = nameWithoutPath.substring(0, nameWithoutPath.lastIndexOf('.'));
+					java.nio.file.Path htmlFile = (new File(nameWithoutPath + ".html")).toPath();
+					List<String> lines = Files.readAllLines(htmlFile);
+					String first = StringUtils.substringBetween(lines.get(205), "</td><td class=\"first\">", "</td>");
+					String last = StringUtils.substringBetween(lines.get(205), "</td><td class=\"last\">", "</td>");
+					AssessmentUser user = new AssessmentUser();
+					user.setFirstName(first);
+					user.setLastName(last);
+					user.setEmail(email);
 
-						JSONObject xApiStatement = StatementBuilder.createAssessmentResultStatement(assessmentTest, ar,
-								user, am);
-						Context.get().monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_1, xApiStatement.toString());
-						result.put("assessments", result.getInt("assessments") + 1);
-						for (ItemResult ir : ar.getItemResults()) {
-							xApiStatement = StatementBuilder.createItemResultStatement(assessmentTest, ir, user, am);
-							Context.get().monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_2,
-									xApiStatement.toString());
-							result.put("items", result.getInt("items") + 1);
-						}
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+					JSONObject xApiStatement = StatementBuilder.createAssessmentResultStatement(assessmentTest, ar,
+							user, am);
+					Context.get().monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_1, xApiStatement.toString());
+					result.put("assessments", result.getInt("assessments") + 1);
+					for (ItemResult ir : ar.getItemResults()) {
+						xApiStatement = StatementBuilder.createItemResultStatement(assessmentTest, ir, user, am);
+						Context.get().monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_2, xApiStatement.toString());
+						result.put("items", result.getInt("items") + 1);
 					}
 
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
+					return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
 				} catch (Exception e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
+					return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
 				}
-
 			}
 		}
+
 		try {
 			// Try to delete content of tmp directory
 			FileUtils.cleanDirectory(dir.getAbsoluteFile());
@@ -180,7 +196,6 @@ public class OnyxDataProxyService extends RESTService {
 			Context.get().monitorEvent(MonitoringEvent.SERVICE_CUSTOM_ERROR_1, e.getMessage());
 		}
 		return Response.ok().entity(result.toString()).build();
-
 	}
 
 }
