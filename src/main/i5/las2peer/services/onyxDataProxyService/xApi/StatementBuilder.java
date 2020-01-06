@@ -16,7 +16,6 @@ public class StatementBuilder {
 		JSONObject actor = new JSONObject();
 		actor.put("name", user.getFirstName() + " " + user.getLastName());
 		JSONObject account = new JSONObject();
-		// TODO Fix identifier
 		account.put("name", user.getEmail());
 		account.put("homePage", homePage);
 		actor.put("account", account);
@@ -36,7 +35,7 @@ public class StatementBuilder {
 	public static JSONObject createAssessmentResultStatement(AssessmentTest assessmentTest,
 			AssessmentResult assessmentResult, AssessmentUser user, AssessmentMetadata metadata) {
 		JSONObject xApiStatement = new JSONObject();
-		JSONObject actor = StatementBuilder.createActor(user, "https://bildungsportal.sachsen.de/opal");
+		JSONObject actor = StatementBuilder.createActor(user, "https://bildungsportal.sachsen.de/opal/");
 		JSONObject verb = StatementBuilder.createVerb();
 		JSONObject object = new JSONObject();
 		JSONObject result = new JSONObject();
@@ -72,10 +71,9 @@ public class StatementBuilder {
 		}
 		for (OutcomeVariable ov : assessmentResult.getTestResult().getOutcomeVariables()) {
 			if (ov.getIdentifier().equalsIgnoreCase("SCORE")) {
-
-				score.put("raw", Integer.parseInt(ov.getValue().getValue()));
+				score.put("raw", Double.parseDouble(ov.getValue().getValue()));
 			} else if (ov.getIdentifier().equalsIgnoreCase("MAXSCORE")) {
-				score.put("max", Integer.parseInt(ov.getValue().getValue()));
+				score.put("max", Double.parseDouble(ov.getValue().getValue()));
 			} else if (ov.getIdentifier().equalsIgnoreCase("PASS")) {
 				result.put("success", Boolean.parseBoolean(ov.getValue().getValue()));
 			}
