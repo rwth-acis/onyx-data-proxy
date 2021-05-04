@@ -15,6 +15,12 @@ export SERVICE_CLASS=$(awk -F "=" '/service.class/ {print $2}' etc/ant_configura
 export SERVICE=${SERVICE_NAME}.${SERVICE_CLASS}@${SERVICE_VERSION}
 
 # check mandatory variables
+[[ -z "${OPAL_USERNAME}" ]] && \
+    echo "Mandatory variable OPAL_USERNAME is not set. Add -e OPAL_USERNAME=myuser to your arguments." && exit 1
+[[ -z "${OPAL_PASSWORD}" ]] && \
+    echo "Mandatory variable OPAL_PASSWORD is not set. Add -e OPAL_PASSWORD=pwd to your arguments." && exit 1
+[[ -z "${COURSE_LIST}" ]] && \
+    echo "Mandatory variable COURSE_LIST is not set. Add COURSE_LIST to your arguments." && exit 1
 
 # optional variables
 [[ -z "${SERVICE_PASSPHRASE}" ]] && export SERVICE_PASSPHRASE='onyx'
@@ -23,6 +29,10 @@ export SERVICE=${SERVICE_NAME}.${SERVICE_CLASS}@${SERVICE_VERSION}
 function set_in_service_config {
     sed -i "s?${1}[[:blank:]]*=.*?${1}=${2}?g" ${SERVICE_PROPERTY_FILE}
 }
+
+set_in_service_config opalUsername ${OPAL_USERNAME}
+set_in_service_config opalPassword ${OPAL_PASSWORD}
+set_in_service_config courseList ${COURSE_LIST}
 
 # wait for any bootstrap host to be available
 if [[ ! -z "${BOOTSTRAP}" ]]; then

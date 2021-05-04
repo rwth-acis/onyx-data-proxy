@@ -6,7 +6,6 @@ import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.Assessmen
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ItemResult;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.OutcomeVariable;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ResponseVariable;
-import i5.las2peer.services.onyxDataProxyService.pojo.assessmentTest.AssessmentTest;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentMetadata;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentUser;
 
@@ -32,8 +31,7 @@ public class StatementBuilder {
 		return verb;
 	}
 
-	public static JSONObject createAssessmentResultStatement(AssessmentTest assessmentTest,
-			AssessmentResult assessmentResult, AssessmentUser user, AssessmentMetadata metadata) {
+	public static JSONObject createAssessmentResultStatement(AssessmentResult assessmentResult, AssessmentUser user, AssessmentMetadata metadata) {
 		JSONObject xApiStatement = new JSONObject();
 		JSONObject actor = StatementBuilder.createActor(user, "https://bildungsportal.sachsen.de/opal/");
 		JSONObject verb = StatementBuilder.createVerb();
@@ -91,7 +89,7 @@ public class StatementBuilder {
 		return xApiStatement;
 	}
 
-	public static JSONObject createItemResultStatement(AssessmentTest assessmentTest, ItemResult ir,
+	public static JSONObject createItemResultStatement(ItemResult ir,
 			AssessmentUser user, AssessmentMetadata metadata) {
 		JSONObject xApiStatement = new JSONObject();
 		JSONObject actor = StatementBuilder.createActor(user, "https://bildungsportal.sachsen.de/opal/");
