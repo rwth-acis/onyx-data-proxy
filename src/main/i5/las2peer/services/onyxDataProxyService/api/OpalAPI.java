@@ -19,6 +19,7 @@ import javax.xml.bind.JAXB;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.cookie.CookiePolicy;
 import org.apache.commons.httpclient.methods.GetMethod;
+import org.apache.commons.lang3.tuple.Pair;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -76,7 +77,7 @@ public class OpalAPI {
 		HttpClient c = login();
 
 		String uri = OPAL_API_BASE_URL + "repo/courses/" + courseId + "/elements";
-		logger.info("Sending request to: " + uri);
+		//logger.info("Sending request to: " + uri);
 
 		GetMethod method = new GetMethod(uri);
 		method.getParams().setCookiePolicy(CookiePolicy.RFC_2109);
@@ -100,15 +101,15 @@ public class OpalAPI {
 		return ((courseNodeVOes) parseResult).courseNodeVO;
 	}
 
-	public List<String> getResultsAfter(String courseId, String nodeId, long lastChecked,
-			List<courseNodeVO> courseElements) throws OpalAPIException {
+	public List<Pair<String, List<String>>> getResultsAfter(String courseId, String nodeId, long lastChecked,
+			List<Pair<courseNodeVO, Boolean>> courseElements) throws OpalAPIException {
 		HttpClient c = login();
 		
 		// find course element
 		courseNodeVO courseElement = null;
-		for(courseNodeVO node : courseElements) {
-			if(node.id.equals(nodeId)) {
-				courseElement = node;
+		for(Pair<courseNodeVO, Boolean> node : courseElements) {
+			if(node.getLeft().id.equals(nodeId)) {
+				courseElement = node.getLeft();
 				break;
 			}
 		}
@@ -122,7 +123,7 @@ public class OpalAPI {
 		String lastCheckedStr = formatter.format(lastChecked);
 
 		String uri = OpalAPI.getResultsURI(courseId, nodeId) + "?startdate=" + lastCheckedStr + "&enddate=" + endDate;
-		logger.info("Sending request to: " + uri);
+		//logger.info("Sending request to: " + uri);
 		GetMethod method = new GetMethod(uri);
 		method.getParams().setCookiePolicy(CookiePolicy.RFC_2109);
 
@@ -138,7 +139,7 @@ public class OpalAPI {
 
 		if (responseCode != 200) {
 			if (responseCode == 404) 
-				throw new OpalAPIException("Course " + courseId + " or node " + nodeId + " could not be found or node is no assessment.");
+				throw new NodeNotAssessableException();
 			throw new OpalAPIException("Error fetching results. Status code: " + responseCode);
 		}
 
@@ -197,8 +198,8 @@ public class OpalAPI {
 		return mappingItem;
 	}
 
-	private List<String> processResults(JSONArray studentMappings, courseNodeVO elementInfo) {
-		List<String> xApiStatements = new ArrayList<>();
+	private List<Pair<String, List<String>>> processResults(JSONArray studentMappings, courseNodeVO elementInfo) {
+		List<Pair<String, List<String>>> xApiStatements = new ArrayList<>();
 		
 		File dir = new File("tmp");
 		File[] directoryListing = dir.listFiles();
@@ -248,17 +249,13 @@ public class OpalAPI {
 					am.setDescription(elementInfo.learningObjectives);
 					am.setTitle(elementInfo.shortTitle);
 
-					JSONObject xApiStatement = StatementBuilder.createAssessmentResultStatement(ar, user, am);
-					xApiStatements.add(xApiStatement.toString());
-					// Context.get().monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_1,
-					// xApiStatement.toString());
+					String assessmentResultStatement = StatementBuilder.createAssessmentResultStatement(ar, user, am).toString();
+					List<String> itemResultStatements = new ArrayList<>();
 					for (ItemResult ir : ar.getItemResults()) {
-						xApiStatement = StatementBuilder.createItemResultStatement(ir, user, am);
-						xApiStatements.add(xApiStatement.toString());
-						
-						// Context.get().monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_2,
-						// xApiStatement.toString());
+						String xApiStatement = StatementBuilder.createItemResultStatement(ir, user, am).toString();
+						itemResultStatements.add(xApiStatement.toString());
 					}
+					xApiStatements.add(Pair.of(assessmentResultStatement, itemResultStatements));
 				} catch (IOException e) {
 					e.printStackTrace();
 				} catch (Exception e) {
