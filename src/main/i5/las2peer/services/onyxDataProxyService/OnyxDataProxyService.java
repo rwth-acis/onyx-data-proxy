@@ -115,6 +115,12 @@ public class OnyxDataProxyService extends RESTService {
 	private String opalPassword;
 	
 	/**
+	 * Whether the service is using the Opal API or not.
+	 * Should be configured using the service properties file.
+	 */
+	private boolean apiEnabled;
+	
+	/**
 	 * Maps every course id to a list of Pair objects containing the 
 	 * course nodes and a boolean value determining whether the node is 
 	 * assessable or not.
@@ -131,13 +137,15 @@ public class OnyxDataProxyService extends RESTService {
 	 */
 	public OnyxDataProxyService() {
 		setFieldValues(); // This sets the values of the configuration file
-		this.updateCourseList();
-		this.updateCourseElementsMap();
+		if(this.apiEnabled) {
+		    this.updateCourseList();
+		    this.updateCourseElementsMap();
 		
-		if(OnyxDataProxyService.lastChecked == 0) {
-			// Get current time
-			TimeZone.setDefault(TimeZone.getTimeZone("Europe/Berlin"));
-			lastChecked = System.currentTimeMillis();
+		    if(OnyxDataProxyService.lastChecked == 0) {
+			    // Get current time
+			    TimeZone.setDefault(TimeZone.getTimeZone("Europe/Berlin"));
+			    lastChecked = System.currentTimeMillis();
+		    }
 		}
 		
 		// testing:
