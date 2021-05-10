@@ -76,9 +76,7 @@ public class OpalAPI {
 	public List<courseNodeVO> getCourseElements(String courseId) throws OpalAPIException {
 		HttpClient c = login();
 
-		String uri = OPAL_API_BASE_URL + "repo/courses/" + courseId + "/elements";
-		//logger.info("Sending request to: " + uri);
-
+		String uri = OpalAPI.getCourseElementsURI(courseId);
 		GetMethod method = new GetMethod(uri);
 		method.getParams().setCookiePolicy(CookiePolicy.RFC_2109);
 
@@ -101,8 +99,20 @@ public class OpalAPI {
 		return ((courseNodeVOes) parseResult).courseNodeVO;
 	}
 
+	/**
+	 * Fetches new assessment results since the given time (lastChecked) and generates
+	 * xAPI statements for them.
+	 * @param courseId Id of the course.
+	 * @param nodeId Id of the node where assessment results should be fetched for.
+	 * @param lastChecked Timestamp since when results should be fetched.
+	 * @param courseElements 
+	 * @return List containing Pair objects. Each of these Pair objects contains an assessment result
+	 *         statement (left) and a list of its corresponding item result statements (right).
+	 * @throws NodeNotAssessableException If the given node is not assessable or the course does not exist.
+	 * @throws OpalAPIException If something else with the request to Opal API went wrong.
+	 */
 	public List<Pair<String, List<String>>> getResultsAfter(String courseId, String nodeId, long lastChecked,
-			List<Pair<courseNodeVO, Boolean>> courseElements) throws OpalAPIException {
+			List<Pair<courseNodeVO, Boolean>> courseElements) throws NodeNotAssessableException, OpalAPIException {
 		HttpClient c = login();
 		
 		// find course element
@@ -117,13 +127,7 @@ public class OpalAPI {
 		if(courseElement == null) 
 			throw new OpalAPIException("Given courseElements list does not contain an element with the nodeId " + nodeId);
 
-		DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-		long now = System.currentTimeMillis();
-		String endDate = formatter.format(now);
-		String lastCheckedStr = formatter.format(lastChecked);
-
-		String uri = OpalAPI.getResultsURI(courseId, nodeId) + "?startdate=" + lastCheckedStr + "&enddate=" + endDate;
-		//logger.info("Sending request to: " + uri);
+		String uri = OpalAPI.getTimeResultsURI(courseId, nodeId, lastChecked);
 		GetMethod method = new GetMethod(uri);
 		method.getParams().setCookiePolicy(CookiePolicy.RFC_2109);
 
@@ -174,7 +178,13 @@ public class OpalAPI {
 				try {
 					InputStream inputStream = new URL(secretLink).openStream();
 					ZipHelper.extractFiles(inputStream, "tmp");
-					return this.processResults(studentMappings, courseElement);
+					
+					AssessmentMetadata am = new AssessmentMetadata();
+					am.setId(courseElement.id);
+					am.setDescription(courseElement.learningObjectives);
+					am.setTitle(courseElement.shortTitle);
+					
+					return this.processResults(studentMappings, am, logger);
 				} catch (IOException e) {
 					e.printStackTrace();
 					throw new OpalAPIException("Error downloading zip from secret link.");
@@ -185,6 +195,13 @@ public class OpalAPI {
 		return new ArrayList<>();
 	}
 	
+	/**
+	 * Creates the JSON mapping which maps result files to the corresponding student.
+	 * @param nodeId
+	 * @param resultVO
+	 * @param userVO
+	 * @return
+	 */
 	private JSONObject getStudentMappingItem(String nodeId, resultVO resultVO, userVO userVO) {
 		String email = userVO.email;
 		String firstName = userVO.firstName;
@@ -198,11 +215,16 @@ public class OpalAPI {
 		return mappingItem;
 	}
 
-	private List<Pair<String, List<String>>> processResults(JSONArray studentMappings, courseNodeVO elementInfo) {
+	/**
+	 * Uses the given mapping and element information together with the downloaded zip (from secret link)
+	 * to generate the xAPI statements that are returned.
+	 * @param studentMappings
+	 * @param am
+	 * @return
+	 */
+	public static List<Pair<String, List<String>>> processResults(JSONArray studentMappings, AssessmentMetadata am,
+			L2pLogger logger) {
 		List<Pair<String, List<String>>> xApiStatements = new ArrayList<>();
-		
-		File dir = new File("tmp");
-		File[] directoryListing = dir.listFiles();
 
 		for (Object mapping : studentMappings) {
 			if (mapping instanceof JSONObject) {
@@ -244,11 +266,6 @@ public class OpalAPI {
 					xml = new String(Files.readAllBytes(onyxFile.toPath()));
 					AssessmentResult ar = AssessmentResultParser.parseAssessmentResult(xml);
 
-					AssessmentMetadata am = new AssessmentMetadata();
-					am.setId(elementInfo.id);
-					am.setDescription(elementInfo.learningObjectives);
-					am.setTitle(elementInfo.shortTitle);
-
 					String assessmentResultStatement = StatementBuilder.createAssessmentResultStatement(ar, user, am).toString();
 					List<String> itemResultStatements = new ArrayList<>();
 					for (ItemResult ir : ar.getItemResults()) {
@@ -289,9 +306,23 @@ public class OpalAPI {
 
 		return client;
 	}
+	
+	private static String getTimeResultsURI(String courseId, String nodeId, long lastChecked) {
+		DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+		long now = System.currentTimeMillis();
+		String endDate = formatter.format(now);
+		String lastCheckedStr = formatter.format(lastChecked);
+		
+		return OpalAPI.getResultsURI(courseId, nodeId) + "?startdate=" + lastCheckedStr + "&enddate=" + endDate;
+	}
 
 	private static String getResultsURI(String courseId, String nodeId) {
 		return OPAL_API_BASE_URL + "repo/courses/" + courseId + "/assessments/" + nodeId + "/results";
+	}
+
+	
+	private static String getCourseElementsURI(String courseId) {
+		return OPAL_API_BASE_URL + "repo/courses/" + courseId + "/elements";
 	}
 
 	@SuppressWarnings("unchecked")

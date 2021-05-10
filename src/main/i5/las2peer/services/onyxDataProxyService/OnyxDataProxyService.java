@@ -224,89 +224,78 @@ public class OnyxDataProxyService extends RESTService {
 		// extract given zip file to tmp folder
 		ZipHelper.extractFiles(zipInputStream, "tmp");
 		File dir = new File("tmp");
-		File[] directoryListing = dir.listFiles();
 		
-		// create JSONObject with information that will be returned at the end of the request
-		JSONObject result = new JSONObject();
-		result.put("assessments", 0);
-		result.put("items", 0);
-		
-		AssessmentMetadata am = null;
 		JSONArray studentMappings = null;
 		try {
 			JSONTokener tokener = new JSONTokener(new InputStreamReader(jsonInputStream, "UTF-8"));
 			studentMappings = new JSONArray(tokener);
-		} catch (UnsupportedEncodingException e1) {
-			e1.printStackTrace();
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
 			return Response.status(Status.BAD_REQUEST)
-					.entity("Student mapping uses an unsupported Encoding: " + e1.getMessage()).build();
-		} catch (JSONException e1) {
-			e1.printStackTrace();
-			return Response.status(Status.BAD_REQUEST).entity("Error while parsing student mapping: " + e1.getMessage())
+					.entity("Student mapping uses an unsupported Encoding: " + e.getMessage()).build();
+		} catch (JSONException e) {
+			e.printStackTrace();
+			return Response.status(Status.BAD_REQUEST).entity("Error while parsing student mapping: " + e.getMessage())
 					.build();
 		}
-		for (File child : directoryListing) {
-			if (child.getName().endsWith(".zip")) {
-				try {
-					String assessmentTestFolder = "tmp/"
-							+ child.getName().subSequence(0, child.getName().lastIndexOf("."));
-					ZipHelper.extractFiles(new FileInputStream(child), assessmentTestFolder);
-					File ims = new File(assessmentTestFolder + "/imsmanifest.xml");
-					String xml = new String(Files.readAllBytes(ims.toPath()));
-					am = AssessmentMetadataParser.parseMetadata(xml);
-				} catch (FileNotFoundException e) {
-					e.printStackTrace();
-					return Response.status(Status.BAD_REQUEST).entity("Assessment meta data not found.").build();
-				} catch (IOException e) {
-					e.printStackTrace();
-					return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
-				} catch (Exception e) {
-					e.printStackTrace();
-					return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
-				}
-			}
+		
+		// get zip containing test metadata (named qtitest.zip)
+		File metadataZip = new File(dir, "qtitest.zip");
+		File metadataDir;
+		try {
+			ZipHelper.extractFiles(new FileInputStream(metadataZip), "tmp/qtitest");
+			metadataDir = new File(dir, "qtitest");
+			if(!metadataDir.exists()) throw new FileNotFoundException("tmp/qtitest dir does not exist.");
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+			return Response.status(Status.BAD_REQUEST)
+					.entity("Given zip does not contain qtitest.zip or it could not be extracted: " + e.getMessage()).build();
 		}
+		
+		// parse assessment metadata from file
+		File ims = new File(metadataDir, "imsmanifest.xml");
+		AssessmentMetadata am = null;
+		try {
+			String xmlMetadata = new String(Files.readAllBytes(ims.toPath()));
+			am = AssessmentMetadataParser.parseMetadata(xmlMetadata);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
+		}
+		
+		// we need to update the student mappings
+		// the given json mapping only contains onyxResultFilename and email
+		// but we also need the first and last name of the student
 		for (Object mapping : studentMappings) {
 			if (mapping instanceof JSONObject) {
 				JSONObject mappingJSON = (JSONObject) mapping;
 				String onyxResultFilename = mappingJSON.getString("onyxResultFilename");
-				String email = mappingJSON.getString("email");
-				File onyxFile = new File("tmp/" + onyxResultFilename);
-
-				String xml;
-				try {
-					xml = new String(Files.readAllBytes(onyxFile.toPath()));
-					AssessmentResult ar = AssessmentResultParser.parseAssessmentResult(xml);
-					String nameWithoutPath = onyxFile.getAbsolutePath();
-					nameWithoutPath = nameWithoutPath.substring(0, nameWithoutPath.lastIndexOf('.'));
-					java.nio.file.Path htmlFile = (new File(nameWithoutPath + ".html")).toPath();
-					List<String> lines = Files.readAllLines(htmlFile);
-					String first = StringUtils.substringBetween(lines.get(205), "</td><td class=\"first\">", "</td>");
-					String last = StringUtils.substringBetween(lines.get(205), "</td><td class=\"last\">", "</td>");
-					AssessmentUser user = new AssessmentUser();
-					user.setFirstName(first);
-					user.setLastName(last);
-					user.setEmail(email);
-
-					JSONObject xApiStatement = StatementBuilder.createAssessmentResultStatement(ar,
-							user, am);
-					Context.get().monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_1, xApiStatement.toString());
-					result.put("assessments", result.getInt("assessments") + 1);
-					for (ItemResult ir : ar.getItemResults()) {
-						xApiStatement = StatementBuilder.createItemResultStatement(ir, user, am);
-						Context.get().monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_2, xApiStatement.toString());
-						result.put("items", result.getInt("items") + 1);
-					}
-
-				} catch (IOException e) {
-					e.printStackTrace();
-					return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
-				} catch (Exception e) {
-					e.printStackTrace();
-					return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
-				}
+				
+				String lastName = onyxResultFilename.split("_")[0];
+				String firstName = onyxResultFilename.split("_")[1].split("_")[0];
+				
+				mappingJSON.put("firstName", firstName);
+				mappingJSON.put("lastName", lastName);
 			}
 		}
+		
+		// generate xAPI statements
+		List<Pair<String, List<String>>> xApiStatements = OpalAPI.processResults(studentMappings, am, logger);
+		// send statements to MobSOS
+		monitorResultStatements(xApiStatements);
+		
+		// count assessment statements and item result statements
+		int assessments = 0;
+		int items = 0;
+		for(Pair<String, List<String>> p : xApiStatements) {
+			assessments++;
+			items += p.getRight().size();
+		}
+		
+		// create JSONObject with information that will be returned
+		JSONObject result = new JSONObject();
+	    result.put("assessments", assessments);
+	    result.put("items", items);
 
 		try {
 			// Try to delete content of tmp directory
