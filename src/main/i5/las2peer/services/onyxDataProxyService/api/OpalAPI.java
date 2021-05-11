@@ -267,10 +267,12 @@ public class OpalAPI {
 					AssessmentResult ar = AssessmentResultParser.parseAssessmentResult(xml);
 
 					String assessmentResultStatement = StatementBuilder.createAssessmentResultStatement(ar, user, am).toString();
+					// append users email to statement
+					assessmentResultStatement += "*" + user.getEmail();
 					List<String> itemResultStatements = new ArrayList<>();
 					for (ItemResult ir : ar.getItemResults()) {
 						String xApiStatement = StatementBuilder.createItemResultStatement(ir, user, am).toString();
-						itemResultStatements.add(xApiStatement.toString());
+						itemResultStatements.add(xApiStatement.toString() + "*" + user.getEmail());
 					}
 					xApiStatements.add(Pair.of(assessmentResultStatement, itemResultStatements));
 				} catch (IOException e) {

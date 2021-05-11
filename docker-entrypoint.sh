@@ -15,6 +15,8 @@ export SERVICE_CLASS=$(awk -F "=" '/service.class/ {print $2}' etc/ant_configura
 export SERVICE=${SERVICE_NAME}.${SERVICE_CLASS}@${SERVICE_VERSION}
 
 # check mandatory variables
+[[ -z "${API_ENABLED}" ]] && \
+    echo "Mandatory variable API_ENABLED is not set. Add -e API_ENABLED=true or false to your arguments." && exit 1
 [[ -z "${OPAL_USERNAME}" ]] && \
     echo "Mandatory variable OPAL_USERNAME is not set. Add -e OPAL_USERNAME=myuser to your arguments." && exit 1
 [[ -z "${OPAL_PASSWORD}" ]] && \
@@ -30,6 +32,7 @@ function set_in_service_config {
     sed -i "s?${1}[[:blank:]]*=.*?${1}=${2}?g" ${SERVICE_PROPERTY_FILE}
 }
 
+set_in_service_config apiEnabled ${API_ENABLED}
 set_in_service_config opalUsername ${OPAL_USERNAME}
 set_in_service_config opalPassword ${OPAL_PASSWORD}
 set_in_service_config courseList ${COURSE_LIST}
