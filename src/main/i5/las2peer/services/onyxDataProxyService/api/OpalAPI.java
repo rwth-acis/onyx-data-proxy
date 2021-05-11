@@ -282,6 +282,65 @@ public class OpalAPI {
 		}
 		return xApiStatements;
 	}
+	
+	/**
+	 * Generates xAPI statements for access statistics of each node of the course.
+	 * @param courseId
+	 * @param courseElements Used to get the node titles (in human language).
+	 * @param lastChecked
+	 * @return List of xAPI statements as Strings.
+	 * @throws OpalAPIException
+	 */
+	public List<String> getCourseAccessStatisticsAfter(String courseId, List<Pair<courseNodeVO, Boolean>> courseElements, 
+			long lastChecked) throws OpalAPIException {	
+		HttpClient c = login();
+		
+		String uri = OpalAPI.getTimeCourseAccessStatisticsURI(courseId, lastChecked);
+		GetMethod method = new GetMethod(uri);
+		method.getParams().setCookiePolicy(CookiePolicy.RFC_2109);
+
+		int responseCode;
+		String body;
+		try {
+			responseCode = c.executeMethod(method);
+			body = method.getResponseBodyAsString();
+		} catch (IOException e) {
+			e.printStackTrace();
+			throw new OpalAPIException("Error fetching course access statistics.");
+		}
+
+		if (responseCode != 200) {
+			throw new OpalAPIException("Error fetching course access statistics. Status code: " + responseCode);
+		}
+		
+		Object parseResult = parseXml(body, statisticVOes.class);
+		statisticVOes res = (statisticVOes) parseResult;
+		
+		ArrayList<String> statements = new ArrayList<>();
+		
+		DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+		String lastCheckedStr = formatter.format(lastChecked);
+		
+		if(res.statisticVO != null) {
+			for(statisticVO s : res.statisticVO) {
+				String nodeId = s.id;
+				
+				// find course element
+				courseNodeVO courseElement = null;
+				for(Pair<courseNodeVO, Boolean> node : courseElements) {
+					if(node.getLeft().id.equals(nodeId)) {
+						courseElement = node.getLeft();
+						break;
+					}
+				}
+				
+				int accesses = s.accesses;
+				statements.add(StatementBuilder.createCourseNodeAccessStatisticStatement(
+						courseId, nodeId, courseElement.shortTitle, accesses, lastCheckedStr).toString());
+			}
+		}
+		return statements;
+	}
 
 	/**
 	 * Returns a HttpClient object that already called the auth endpoint and is logged in.
@@ -319,7 +378,17 @@ public class OpalAPI {
 	private static String getResultsURI(String courseId, String nodeId) {
 		return OPAL_API_BASE_URL + "repo/courses/" + courseId + "/assessments/" + nodeId + "/results";
 	}
-
+	
+	private static String getTimeCourseAccessStatisticsURI(String courseId, long lastChecked) {
+		DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+		String lastCheckedStr = formatter.format(lastChecked);
+		
+		return OpalAPI.getCourseAccessStatisticsURI(courseId) + "?startdate=" + lastCheckedStr + "&enddate=" + lastCheckedStr;
+	}
+	
+	private static String getCourseAccessStatisticsURI(String courseId) {
+		return OPAL_API_BASE_URL + "repo/courses/" + courseId + "/statistic";
+	}
 	
 	private static String getCourseElementsURI(String courseId) {
 		return OPAL_API_BASE_URL + "repo/courses/" + courseId + "/elements";
@@ -380,5 +449,14 @@ public class OpalAPI {
 	public static class courseNodeVOes {
 		public List<courseNodeVO> courseNodeVO = new ArrayList<>();
 	}
+	
+	private static class statisticVO {
+        public String id;
+        public Integer accesses;
+    }
+
+    private static class statisticVOes {
+        public List<statisticVO> statisticVO = new ArrayList<>();
+    }
 
 }

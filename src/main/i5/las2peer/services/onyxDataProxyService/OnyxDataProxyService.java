@@ -90,11 +90,14 @@ public class OnyxDataProxyService extends RESTService {
 	private final static L2pLogger logger = L2pLogger.getInstance(OnyxDataProxyService.class.getName());
 
 	private final static int OPAL_DATA_STREAM_PERIOD = 60; // Every minute
+	private final static int OPAL_STATISTICS_STREAM_PERIOD = 1; // every day
 	
 	private static ScheduledExecutorService dataStreamThread = null;
+	private static ScheduledExecutorService statisticsStreamThread = null;
 	private static Context context = null;
 	
 	private static long lastChecked = 0;
+	private static long lastCheckedStatistics = 0;
 	
 	/**
 	 * Course list can be set using the service properties file.
@@ -146,12 +149,12 @@ public class OnyxDataProxyService extends RESTService {
 			    TimeZone.setDefault(TimeZone.getTimeZone("Europe/Berlin"));
 			    lastChecked = System.currentTimeMillis();
 		    }
+		    if(OnyxDataProxyService.lastCheckedStatistics == 0) {
+			    // Get current time
+			    TimeZone.setDefault(TimeZone.getTimeZone("Europe/Berlin"));
+			    lastCheckedStatistics = System.currentTimeMillis();
+		    }
 		}
-		
-		// testing:
-		/*lastChecked = 0;
-		dataStreamThread = Executors.newSingleThreadScheduledExecutor();
-		dataStreamThread.scheduleAtFixedRate(new DataStreamThread(), 0, OPAL_DATA_STREAM_PERIOD, TimeUnit.SECONDS);*/
 	}
 
 	/**
@@ -162,6 +165,7 @@ public class OnyxDataProxyService extends RESTService {
 		Map<String, String> descriptions = new HashMap<>();
 		descriptions.put("SERVICE_CUSTOM_MESSAGE_1", "Sent assessment result to lrs.");
 		descriptions.put("SERVICE_CUSTOM_MESSAGE_2", "Sent item result of an assessment to lrs.");
+		descriptions.put("SERVICE_CUSTOM_MESSAGE_3", "Sent course node access statistic to lrs.");
 		descriptions.put("SERVICE_CUSTOM_ERROR_1", "Cannot delete processed files.");
 		return descriptions;
 	}
@@ -289,6 +293,8 @@ public class OnyxDataProxyService extends RESTService {
 		
 		// generate xAPI statements
 		List<Pair<String, List<String>>> xApiStatements = OpalAPI.processResults(studentMappings, am, logger);
+		// need to set context for monitoring
+		context = Context.get();
 		// send statements to MobSOS
 		monitorResultStatements(xApiStatements);
 		
@@ -337,6 +343,8 @@ public class OnyxDataProxyService extends RESTService {
 			context = Context.get();
 			dataStreamThread = Executors.newSingleThreadScheduledExecutor();
 			dataStreamThread.scheduleAtFixedRate(new DataStreamThread(), 0, OPAL_DATA_STREAM_PERIOD, TimeUnit.SECONDS);
+			statisticsStreamThread = Executors.newSingleThreadScheduledExecutor();
+			statisticsStreamThread.scheduleAtFixedRate(new StatisticsStreamThread(), 0, OPAL_STATISTICS_STREAM_PERIOD, TimeUnit.DAYS);
 			return Response.status(Status.OK).entity("Thread started.").build();
 		} else {
 			return Response.status(Status.BAD_REQUEST).entity("Thread already running.").build();
@@ -366,7 +374,8 @@ public class OnyxDataProxyService extends RESTService {
 						String nodeID = courseNode.getLeft().id;
 						logger.info("Getting updates for node " + nodeID + " in course " + courseID + " since " + lastCheckedStr);
 						try {
-							List<Pair<String, List<String>>> xApiStatements = api.getResultsAfter(String.valueOf(courseID), nodeID, lastChecked, courseElementsMap.get(courseID));
+							List<Pair<String, List<String>>> xApiStatements = api.getResultsAfter(String.valueOf(courseID), 
+									nodeID, lastChecked, courseElementsMap.get(courseID));
 						    monitorResultStatements(xApiStatements);
 						} catch (NodeNotAssessableException e) {
 							// this course node is not assessable
@@ -385,6 +394,36 @@ public class OnyxDataProxyService extends RESTService {
 		}
 	}
 	
+	private class StatisticsStreamThread implements Runnable {
+		@Override
+		public void run() {
+			logger.info("running statistics stream thread");
+			
+			// Get current time
+			TimeZone.setDefault(TimeZone.getTimeZone("Europe/Berlin"));
+			long now = System.currentTimeMillis();
+			
+			DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+			String lastCheckedStr = formatter.format(lastCheckedStatistics);
+			
+			OpalAPI api = new OpalAPI(opalUsername, opalPassword, logger);
+			
+			for (long courseID : courses) {
+				logger.info("Getting statistic updates for course " + courseID + " since " + lastCheckedStr);
+				try {
+					List<String> xApiStatements = api.getCourseAccessStatisticsAfter(String.valueOf(courseID), 
+							courseElementsMap.get(courseID), lastCheckedStatistics);
+					monitorCourseAccessStatistics(xApiStatements);
+				} catch (OpalAPIException e) {
+					e.printStackTrace();
+					logger.severe("Error: " + e.getMessage());
+				}
+			}
+			
+			lastCheckedStatistics = now;
+		}
+	}
+	
 	/**
 	 * Sends the given assessment result statements and item result statements to MobSOS.
 	 * @param xApiStatements List of Pair objects, where the first entry is an assessment result statement
@@ -397,16 +436,28 @@ public class OnyxDataProxyService extends RESTService {
 	    	String assessmentResultStatement = result.getLeft();
 	    	logger.info("Assessment Result: ");
 	    	logger.info(assessmentResultStatement);
-	    	//context.monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_1, assessmentResultStatement);
+	    	context.monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_1, assessmentResultStatement);
 	    	
 	    	// monitor the item result statements
 	    	List<String> itemResultStatements = result.getRight();
 	    	for(String itemResultStatement : itemResultStatements) {
 	    		logger.info("Item Result: ");
 		    	logger.info(itemResultStatement);
-	    		//context.monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_2, itemResultStatement);
+	    		context.monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_2, itemResultStatement);
 	    	}
 	    }
+	}
+	
+	/**
+	 * Sends the given course node access statistics to MobSOS.
+	 * @param xApiStatements
+	 */
+	private void monitorCourseAccessStatistics(List<String> xApiStatements) {
+		for(String statement : xApiStatements) {
+			logger.info("Course node statistic: ");
+			logger.info(statement);
+			context.monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_3, statement);
+		}
 	}
 
 }
