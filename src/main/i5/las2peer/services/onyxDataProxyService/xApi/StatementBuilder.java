@@ -85,7 +85,7 @@ public class StatementBuilder {
 		xApiStatement.put("object", object);
 		xApiStatement.put("result", result);
 		xApiStatement.put("context", context);
-		xApiStatement.put("timestamp", assessmentResult.getTestResult().getDatestamp());
+		xApiStatement.put("timestamp", assessmentResult.getTestResult().getDatestamp() + "Z");
 		return xApiStatement;
 	}
 
