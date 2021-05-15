@@ -144,7 +144,7 @@ public class StatementBuilder {
 		xApiStatement.put("object", object);
 		xApiStatement.put("result", result);
 		xApiStatement.put("context", context);
-		xApiStatement.put("timestamp", ir.getDateStamp());
+		xApiStatement.put("timestamp", ir.getDateStamp() + "Z");
 		return xApiStatement;
 	}
 	
