@@ -76,7 +76,12 @@ public class StatementBuilder {
 				result.put("success", Boolean.parseBoolean(ov.getValue().getValue()));
 			}
 		}
-		score.put("scaled", score.getDouble("raw") / score.getDouble("max"));
+		
+		if(score.has("raw") && score.has("max")) {
+			score.put("scaled", score.getDouble("raw") / score.getDouble("max"));	
+		} else {
+			score.put("scaled", 0);
+		}
 
 		result.put("score", score);
 
@@ -136,7 +141,12 @@ public class StatementBuilder {
 				result.put("success", Boolean.parseBoolean(ov.getValue().getValue()));
 			}
 		}
-		score.put("scaled", score.getDouble("raw") / score.getDouble("max"));
+		
+		if(score.has("raw") && score.has("max")) {
+			score.put("scaled", score.getDouble("raw") / score.getDouble("max"));	
+		} else {
+			score.put("scaled", 0);
+		}
 		result.put("score", score);
 
 		xApiStatement.put("actor", actor);
