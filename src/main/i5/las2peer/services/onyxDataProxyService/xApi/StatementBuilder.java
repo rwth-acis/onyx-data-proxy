@@ -147,6 +147,12 @@ public class StatementBuilder {
 		} else {
 			score.put("scaled", 0);
 		}
+		
+		// score extensions
+		JSONObject scoreExtensions = new JSONObject();
+		scoreExtensions.put("https://tech4comp.de/xapi/context/extensions/sessionStatus", ir.getSessionStatus());
+		score.put("extensions", scoreExtensions);
+		
 		result.put("score", score);
 
 		xApiStatement.put("actor", actor);
