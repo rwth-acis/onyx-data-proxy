@@ -289,13 +289,12 @@ public class OpalAPI {
 	 * Generates xAPI statements for access statistics of each node of the course.
 	 * @param courseId
 	 * @param courseElements Used to get the node titles (in human language).
-	 * @param teacherEmail Email address of the course teacher.
 	 * @param lastChecked
 	 * @return List of xAPI statements as Strings.
 	 * @throws OpalAPIException
 	 */
 	public List<String> getCourseAccessStatisticsAfter(String courseId, List<Pair<courseNodeVO, Boolean>> courseElements, 
-			String teacherEmail, long lastChecked) throws OpalAPIException {	
+			long lastChecked) throws OpalAPIException {	
 		HttpClient c = login();
 		
 		String uri = OpalAPI.getTimeCourseAccessStatisticsURI(courseId, lastChecked);
@@ -338,9 +337,8 @@ public class OpalAPI {
 				}
 				
 				int accesses = s.accesses;
-				String xApiStatement = StatementBuilder.createCourseNodeAccessStatisticStatement(
-						courseId, nodeId, courseElement.shortTitle, accesses, lastCheckedStr).toString();
-				statements.add(xApiStatement + "*" + teacherEmail);
+				statements.add(StatementBuilder.createCourseNodeAccessStatisticStatement(
+						courseId, nodeId, courseElement.shortTitle, accesses, lastCheckedStr).toString());
 			}
 		}
 		return statements;

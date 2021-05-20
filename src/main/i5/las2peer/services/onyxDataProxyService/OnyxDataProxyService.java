@@ -103,18 +103,7 @@ public class OnyxDataProxyService extends RESTService {
 	 * Course list can be set using the service properties file.
 	 */
 	private String courseList;
-	
-	/**
-	 * List of course teachers corresponding to the list of courses.
-	 * Can be set using the service properties file.
-	 */
-	private String courseTeacherEmailList;
-	
-	/**
-	 * Maps course ids to the email address of their teacher.
-	 * This email address is used for course statistic statements.
-	 */
-	private static HashMap<Long, String> courses = new HashMap<>();
+	private static HashSet<Long> courses = new HashSet<Long>();
 	
 	/**
 	 * Username of the account used to access the Opal API.
@@ -186,22 +175,12 @@ public class OnyxDataProxyService extends RESTService {
 	 */
 	private void updateCourseList() {
 		courses.clear();
-		if (courseList != null && courseList.length() > 0 && courseTeacherEmailList != null
-				&& courseTeacherEmailList.length() > 0) {
+		if (courseList != null && courseList.length() > 0) {
 			try {
 				logger.info("Reading courses from provided list.");
 				String[] idStrings = courseList.split(",");
-				String[] emailStrings = courseTeacherEmailList.split(",");
-				
-				if(idStrings.length != emailStrings.length) {
-				    logger.severe("Number of courses differs from number of course teacher email list.");
-				    return;
-				}
-				
-				for (int i = 0; i < idStrings.length; i++) {
-					String courseid = idStrings[i];
-					String teacherEmail = emailStrings[i];
-					courses.put(Long.parseLong(courseid), teacherEmail);
+				for (String courseid : idStrings) {
+					courses.add(Long.parseLong(courseid));
 				}
 				logger.info("Updating course list was successful: " + courses);
 				return;
@@ -219,7 +198,7 @@ public class OnyxDataProxyService extends RESTService {
 	private void updateCourseElementsMap() {
 		courseElementsMap.clear();
 		OpalAPI api = new OpalAPI(opalUsername, opalPassword, logger);
-		for(long courseID : courses.keySet()) {
+		for(long courseID : courses) {
 			try {
 				logger.info("Loading course elements for course " + courseID);
 				// fetch course nodes from Opal API
@@ -386,7 +365,7 @@ public class OnyxDataProxyService extends RESTService {
 			
 			OpalAPI api = new OpalAPI(opalUsername, opalPassword, logger);
 			
-			for (long courseID : courses.keySet()) {
+			for (long courseID : courses) {
 				for(Pair<courseNodeVO, Boolean> courseNode : courseElementsMap.get(courseID)) {
 					// Note: initially every course node is flagged as assessable
 					// but this will be corrected after we get a 404 for the results of these nodes
@@ -429,11 +408,11 @@ public class OnyxDataProxyService extends RESTService {
 			
 			OpalAPI api = new OpalAPI(opalUsername, opalPassword, logger);
 			
-			for (long courseID : courses.keySet()) {
+			for (long courseID : courses) {
 				logger.info("Getting statistic updates for course " + courseID + " since " + lastCheckedStr);
 				try {
 					List<String> xApiStatements = api.getCourseAccessStatisticsAfter(String.valueOf(courseID), 
-							courseElementsMap.get(courseID), courses.get(courseID), lastCheckedStatistics);
+							courseElementsMap.get(courseID), lastCheckedStatistics);
 					monitorCourseAccessStatistics(xApiStatements);
 				} catch (OpalAPIException e) {
 					e.printStackTrace();
