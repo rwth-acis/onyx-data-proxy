@@ -30,7 +30,6 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.glassfish.jersey.media.multipart.FormDataParam;
@@ -51,13 +50,9 @@ import i5.las2peer.services.onyxDataProxyService.api.OpalAPI;
 import i5.las2peer.services.onyxDataProxyService.api.OpalAPIException;
 import i5.las2peer.services.onyxDataProxyService.api.OpalAPI.courseNodeVO;
 import i5.las2peer.services.onyxDataProxyService.parser.AssessmentMetadataParser;
-import i5.las2peer.services.onyxDataProxyService.parser.AssessmentResultParser;
-import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.AssessmentResult;
-import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ItemResult;
+import i5.las2peer.services.onyxDataProxyService.parser.ResultZipParser;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentMetadata;
-import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentUser;
 import i5.las2peer.services.onyxDataProxyService.utils.ZipHelper;
-import i5.las2peer.services.onyxDataProxyService.xApi.StatementBuilder;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
@@ -292,7 +287,7 @@ public class OnyxDataProxyService extends RESTService {
 		}
 		
 		// generate xAPI statements
-		List<Pair<String, List<String>>> xApiStatements = OpalAPI.processResults(studentMappings, am, logger);
+		List<Pair<String, List<String>>> xApiStatements = ResultZipParser.processResults(studentMappings, am, logger);
 		// need to set context for monitoring
 		context = Context.get();
 		// send statements to MobSOS
