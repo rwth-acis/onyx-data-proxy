@@ -34,6 +34,7 @@ import i5.las2peer.services.onyxDataProxyService.xApi.StatementBuilder;
 public class OpalAPI {
 
 	private static final String OPAL_API_BASE_URL = "https://bildungsportal.sachsen.de/opal/restapi/";
+	private static final String RESULT_STATE_COMPLETED = "Completed";
 
 	/**
 	 * Username of the account used to access the Opal API.
@@ -149,11 +150,16 @@ public class OpalAPI {
 			JSONArray studentMappings = new JSONArray();
 			for (resultsVO resultsVO : res.resultsVO) {
 				if (resultsVO.resultVO != null && resultsVO.resultVO.size() > 0) {
-					// there is a new item
-					newItem = true;
-
+					// there is at least one resultsVO item that also contains a resultVO
 					for (resultVO resultVO : resultsVO.resultVO) {
-						studentMappings.put(getStudentMappingItem(nodeId, resultVO, resultsVO.userVO));
+						// check if result state is already completed
+						// otherwise we do not want to generate a statement
+						if(resultVO.state.equals(RESULT_STATE_COMPLETED)) {
+							// there is a new item
+							newItem = true;
+							
+						    studentMappings.put(getStudentMappingItem(nodeId, resultVO, resultsVO.userVO));
+						}
 					}
 				}
 			}
