@@ -78,7 +78,7 @@ public class ResultZipParser {
 					// append users email to statement
 					assessmentResultStatement += "*" + user.getEmail();
 					List<String> itemResultStatements = new ArrayList<>();
-					for (ItemResult ir : ar.getItemResults()) {
+					for (ItemResult ir : ar.getFilteredItemResults()) {
 						String xApiStatement = StatementBuilder.createItemResultStatement(ir, user, am).toString();
 						itemResultStatements.add(xApiStatement.toString() + "*" + user.getEmail());
 					}
