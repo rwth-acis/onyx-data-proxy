@@ -458,6 +458,7 @@ public class OnyxDataProxyService extends RESTService {
 	 */
 	private void monitorCourseAccessStatistics(List<String> xApiStatements) {
 		for(String statement : xApiStatements) {
+			statement = statement + "*" + this.opalUsername;
 			logger.info("Course node statistic: ");
 			logger.info(statement);
 			context.monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_3, statement);
