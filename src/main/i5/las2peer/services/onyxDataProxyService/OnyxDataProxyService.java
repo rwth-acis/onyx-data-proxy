@@ -42,6 +42,7 @@ import i5.las2peer.api.Context;
 import i5.las2peer.api.ManualDeployment;
 import i5.las2peer.api.logging.MonitoringEvent;
 import i5.las2peer.api.security.AnonymousAgent;
+import i5.las2peer.security.UserAgentImpl;
 import i5.las2peer.logging.L2pLogger;
 import i5.las2peer.restMapper.RESTService;
 import i5.las2peer.restMapper.annotations.ServicePath;
@@ -322,16 +323,24 @@ public class OnyxDataProxyService extends RESTService {
 			value = { @ApiResponse(code = HttpURLConnection.HTTP_OK, message = "Thread started."),
 					  @ApiResponse(code = HttpURLConnection.HTTP_UNAUTHORIZED, message = "Authorization required."),
 					  @ApiResponse(code = HttpURLConnection.HTTP_BAD_REQUEST, message = "Thread already running."),
+					  @ApiResponse(code = HttpURLConnection.HTTP_FORBIDDEN, message = "Access denied."),
 					  @ApiResponse(code = HttpURLConnection.HTTP_INTERNAL_ERROR, message = "Opal username or password is not configured or is empty.")})
 	public Response initOnyxProxy() {
-		/*if (Context.getCurrent().getMainAgent() instanceof AnonymousAgent) {
+		if (Context.getCurrent().getMainAgent() instanceof AnonymousAgent) {
 			return Response.status(HttpURLConnection.HTTP_UNAUTHORIZED).entity("Authorization required.").build();
-		}*/
+		}
 		
 		// check if credentials for API are given
 		if(this.opalUsername == null || this.opalPassword == null || this.opalUsername.isEmpty() || this.opalPassword.isEmpty()) {
 			return Response.status(HttpURLConnection.HTTP_INTERNAL_ERROR)
 					.entity("Opal username or password is not configured or is empty.").build();
+		}
+		
+		// check if agent sending the request uses the same email address that is used for the Opal API
+		UserAgentImpl u = (UserAgentImpl) Context.getCurrent().getMainAgent();
+		String uEmail = u.getEmail();
+		if(!uEmail.equals(this.opalUsername)) {
+			return Response.status(Status.FORBIDDEN).entity("Access denied.").build();
 		}
 		
 		if (dataStreamThread == null) {
