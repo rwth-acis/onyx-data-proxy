@@ -6,7 +6,6 @@ import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.Assessmen
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ItemResult;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.OutcomeVariable;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ResponseVariable;
-import i5.las2peer.services.onyxDataProxyService.pojo.assessmentTest.AssessmentTest;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentMetadata;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentUser;
 
@@ -32,8 +31,7 @@ public class StatementBuilder {
 		return verb;
 	}
 
-	public static JSONObject createAssessmentResultStatement(AssessmentTest assessmentTest,
-			AssessmentResult assessmentResult, AssessmentUser user, AssessmentMetadata metadata) {
+	public static JSONObject createAssessmentResultStatement(AssessmentResult assessmentResult, AssessmentUser user, AssessmentMetadata metadata) {
 		JSONObject xApiStatement = new JSONObject();
 		JSONObject actor = StatementBuilder.createActor(user, "https://bildungsportal.sachsen.de/opal/");
 		JSONObject verb = StatementBuilder.createVerb();
@@ -78,7 +76,12 @@ public class StatementBuilder {
 				result.put("success", Boolean.parseBoolean(ov.getValue().getValue()));
 			}
 		}
-		score.put("scaled", score.getDouble("raw") / score.getDouble("max"));
+		
+		if(score.has("raw") && score.has("max")) {
+			score.put("scaled", score.getDouble("raw") / score.getDouble("max"));	
+		} else {
+			score.put("scaled", 0);
+		}
 
 		result.put("score", score);
 
@@ -87,11 +90,11 @@ public class StatementBuilder {
 		xApiStatement.put("object", object);
 		xApiStatement.put("result", result);
 		xApiStatement.put("context", context);
-		xApiStatement.put("timestamp", assessmentResult.getTestResult().getDatestamp());
+		xApiStatement.put("timestamp", assessmentResult.getTestResult().getDatestamp() + "Z");
 		return xApiStatement;
 	}
 
-	public static JSONObject createItemResultStatement(AssessmentTest assessmentTest, ItemResult ir,
+	public static JSONObject createItemResultStatement(ItemResult ir,
 			AssessmentUser user, AssessmentMetadata metadata) {
 		JSONObject xApiStatement = new JSONObject();
 		JSONObject actor = StatementBuilder.createActor(user, "https://bildungsportal.sachsen.de/opal/");
@@ -138,7 +141,18 @@ public class StatementBuilder {
 				result.put("success", Boolean.parseBoolean(ov.getValue().getValue()));
 			}
 		}
-		score.put("scaled", score.getDouble("raw") / score.getDouble("max"));
+		
+		if(score.has("raw") && score.has("max")) {
+			score.put("scaled", score.getDouble("raw") / score.getDouble("max"));	
+		} else {
+			score.put("scaled", 0);
+		}
+		
+		// score extensions
+		JSONObject scoreExtensions = new JSONObject();
+		scoreExtensions.put("https://tech4comp.de/xapi/context/extensions/sessionStatus", ir.getSessionStatus());
+		score.put("extensions", scoreExtensions);
+		
 		result.put("score", score);
 
 		xApiStatement.put("actor", actor);
@@ -146,7 +160,62 @@ public class StatementBuilder {
 		xApiStatement.put("object", object);
 		xApiStatement.put("result", result);
 		xApiStatement.put("context", context);
-		xApiStatement.put("timestamp", ir.getDateStamp());
+		xApiStatement.put("timestamp", ir.getDateStamp() + "Z");
 		return xApiStatement;
+	}
+	
+	public static JSONObject createCourseNodeAccessStatisticStatement(String courseId, String nodeId, String nodeName, int accesses, String date) {
+		JSONObject xApiStatement = new JSONObject();
+		JSONObject actor = createGroupForCourse(courseId, "https://bildungsportal.sachsen.de/opal/");
+		JSONObject verb = createVerbViewed();
+		
+		JSONObject object = new JSONObject();
+		object.put("id", "http://adlnet.gov/expapi/activities/onyx/" + courseId + "/elements/" + nodeId);
+		
+		// definition
+		JSONObject definition = new JSONObject();
+		JSONObject name = new JSONObject();
+		name.put("en-US", nodeName);
+		definition.put("name", name);
+		
+		// definition.interactionType -- new property based on the latest xAPI validation
+		definition.put("interactionType", "other");
+		
+		object.put("definition", definition);
+		
+		JSONObject context = new JSONObject();
+		
+		JSONObject extensions = new JSONObject();
+		JSONObject accessExtension = new JSONObject();
+		accessExtension.put("accesses", accesses);
+		extensions.put("https://tech4comp.de/xapi/context/extensions/nodeAccessStatistic", accessExtension);
+		context.put("extensions", extensions);
+		
+		xApiStatement.put("actor", actor);
+		xApiStatement.put("verb", verb);
+		xApiStatement.put("object", object);
+		xApiStatement.put("context", context);
+		xApiStatement.put("timestamp", date);
+		return xApiStatement;
+	}
+	
+	private static JSONObject createGroupForCourse(String courseId, String homePage) {
+		JSONObject actor = new JSONObject();
+		actor.put("objectType", "Group");
+		actor.put("name", "Members of course " + courseId);
+		JSONObject account = new JSONObject();
+		account.put("name", "Members of course " + courseId);
+		account.put("homePage", homePage);
+		actor.put("account", account);
+		return actor;
+	}
+	
+	public static JSONObject createVerbViewed() {
+		JSONObject verb = new JSONObject();
+		verb.put("id", "http://id.tincanapi.com/verb/viewed");
+		JSONObject display = new JSONObject();
+		display.put("en-US", "viewed");
+		verb.put("display", display);
+		return verb;
 	}
 }
