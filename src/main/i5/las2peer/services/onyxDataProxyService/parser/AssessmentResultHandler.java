@@ -89,7 +89,7 @@ public class AssessmentResultHandler extends DefaultHandler {
 		} else if (qName.equalsIgnoreCase("itemResult")) {
 			ItemResult itemResult = new ItemResult();
 			itemResult.setIdentifier(attributes.getValue("identifier"));
-			itemResult.setDateStamp(attributes.getValue("dateStamp"));
+			itemResult.setDateStamp(attributes.getValue("datestamp"));
 			itemResult.setSessionStatus(attributes.getValue("sessionStatus"));
 			itemResult.setSequenceIndex(attributes.getValue("sequenceIndex"));
 

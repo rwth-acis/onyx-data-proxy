@@ -26,13 +26,15 @@ public class ZipHelper {
 		try {
 			ZipEntry zipEntry = zis.getNextEntry();
 			while (zipEntry != null) {
-				File newFile = ZipHelper.newFile(destDir, zipEntry);
-				FileOutputStream fos = new FileOutputStream(newFile);
-				int len;
-				while ((len = zis.read(buffer)) > 0) {
-					fos.write(buffer, 0, len);
+				if (!zipEntry.getName().contains("/")) {
+					File newFile = ZipHelper.newFile(destDir, zipEntry);
+					FileOutputStream fos = new FileOutputStream(newFile);
+					int len;
+					while ((len = zis.read(buffer)) > 0) {
+						fos.write(buffer, 0, len);
+					}
+					fos.close();
 				}
-				fos.close();
 				zipEntry = zis.getNextEntry();
 			}
 			zis.closeEntry();
