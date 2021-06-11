@@ -6,5 +6,5 @@ docker-build:
   before_script:
     - docker login -u "$DOCKER_USER" -p "$DOCKER_PW" registry.tech4comp.dbis.rwth-aachen.de
   script:
-    - docker build --pull -t "registry.tech4comp.dbis.rwth-aachen.de/rwthacis/onyx-data-proxy:$CI_COMMIT_REF_SLUG" .
-    - docker push "registry.tech4comp.dbis.rwth-aachen.de/rwthacis/onyx-data-proxy:$CI_COMMIT_REF_SLUG"
+    - docker build --pull -t "registry.tech4comp.dbis.rwth-aachen.de/rwthacis/onyx-data-proxy:$CI_COMMIT_REF_NAME" .
+    - docker push "registry.tech4comp.dbis.rwth-aachen.de/rwthacis/onyx-data-proxy:$CI_COMMIT_REF_NAME"
