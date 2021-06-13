@@ -65,7 +65,7 @@ import io.swagger.annotations.SwaggerDefinition;
 @SwaggerDefinition(
 		info = @Info(
 				title = "Onyx Data Proxy Service",
-				version = "1.0.0",
+				version = "1.0.1",
 				description = "A proxy for onyx data",
 				contact = @Contact(
 						name = "Alexander Tobias Neumann",
