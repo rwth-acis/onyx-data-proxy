@@ -119,6 +119,8 @@ public class OnyxDataProxyService extends RESTService {
 	 */
 	private boolean apiEnabled;
 	
+	private OpalAPI api;
+	
 	/**
 	 * Maps every course id to a list of Pair objects containing the 
 	 * course nodes and a boolean value determining whether the node is 
@@ -137,6 +139,7 @@ public class OnyxDataProxyService extends RESTService {
 	public OnyxDataProxyService() {
 		setFieldValues(); // This sets the values of the configuration file
 		if(this.apiEnabled) {
+			this.api = new OpalAPI(opalUsername, opalPassword, logger);
 		    this.updateCourseList();
 		    this.updateCourseElementsMap();
 		
@@ -193,7 +196,6 @@ public class OnyxDataProxyService extends RESTService {
 	 */
 	private void updateCourseElementsMap() {
 		courseElementsMap.clear();
-		OpalAPI api = new OpalAPI(opalUsername, opalPassword, logger);
 		for(long courseID : courses) {
 			try {
 				logger.info("Loading course elements for course " + courseID);
@@ -346,7 +348,8 @@ public class OnyxDataProxyService extends RESTService {
 		if (dataStreamThread == null) {
 			context = Context.get();
 			dataStreamThread = Executors.newSingleThreadScheduledExecutor();
-			dataStreamThread.scheduleAtFixedRate(new DataStreamThread(), 0, OPAL_DATA_STREAM_PERIOD, TimeUnit.SECONDS);
+			// start dataStreamThread a bit later than statisticsStreamThread (otherwise we get login problems)
+			dataStreamThread.scheduleAtFixedRate(new DataStreamThread(), 30, OPAL_DATA_STREAM_PERIOD, TimeUnit.SECONDS);
 			statisticsStreamThread = Executors.newSingleThreadScheduledExecutor();
 			statisticsStreamThread.scheduleAtFixedRate(new StatisticsStreamThread(), 0, OPAL_STATISTICS_STREAM_PERIOD, TimeUnit.DAYS);
 			return Response.status(Status.OK).entity("Thread started.").build();
@@ -366,8 +369,6 @@ public class OnyxDataProxyService extends RESTService {
 			
 			DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 			String lastCheckedStr = formatter.format(lastChecked);
-			
-			OpalAPI api = new OpalAPI(opalUsername, opalPassword, logger);
 			
 			for (long courseID : courses) {
 				for(Pair<courseNodeVO, Boolean> courseNode : courseElementsMap.get(courseID)) {
@@ -410,7 +411,6 @@ public class OnyxDataProxyService extends RESTService {
 			DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
 			String lastCheckedStr = formatter.format(lastCheckedStatistics);
 			
-			OpalAPI api = new OpalAPI(opalUsername, opalPassword, logger);
 			
 			for (long courseID : courses) {
 				logger.info("Getting statistic updates for course " + courseID + " since " + lastCheckedStr);
