@@ -90,7 +90,7 @@ public class StatementBuilder {
 		xApiStatement.put("object", object);
 		xApiStatement.put("result", result);
 		xApiStatement.put("context", context);
-		xApiStatement.put("timestamp", assessmentResult.getTestResult().getDatestamp() + "Z");
+		xApiStatement.put("timestamp", assessmentResult.getTestResult().getDatestamp() + "+02:00");
 		return xApiStatement;
 	}
 
@@ -160,7 +160,7 @@ public class StatementBuilder {
 		xApiStatement.put("object", object);
 		xApiStatement.put("result", result);
 		xApiStatement.put("context", context);
-		xApiStatement.put("timestamp", ir.getDateStamp() + "Z");
+		xApiStatement.put("timestamp", ir.getDateStamp() + "+02:00");
 		return xApiStatement;
 	}
 	
