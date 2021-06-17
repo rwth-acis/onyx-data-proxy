@@ -23,6 +23,8 @@ export SERVICE=${SERVICE_NAME}.${SERVICE_CLASS}@${SERVICE_VERSION}
     echo "Mandatory variable OPAL_PASSWORD is not set. Add -e OPAL_PASSWORD=pwd to your arguments." && exit 1
 [[ -z "${COURSE_LIST}" ]] && \
     echo "Mandatory variable COURSE_LIST is not set. Add COURSE_LIST to your arguments." && exit 1
+[[ -z "${PSEUDONYMIZATION_ENABLED}" ]] && \
+    echo "Mandatory variable PSEUDONYMIZATION_ENABLED is not set. Add PSEUDONYMIZATION_ENABLED to your arguments." && exit 1
 
 # optional variables
 [[ -z "${SERVICE_PASSPHRASE}" ]] && export SERVICE_PASSPHRASE='onyx'
@@ -36,6 +38,7 @@ set_in_service_config apiEnabled ${API_ENABLED}
 set_in_service_config opalUsername ${OPAL_USERNAME}
 set_in_service_config opalPassword ${OPAL_PASSWORD}
 set_in_service_config courseList ${COURSE_LIST}
+set_in_service_config pseudonymizationEnabled ${PSEUDONYMIZATION_ENABLED}
 
 # wait for any bootstrap host to be available
 if [[ ! -z "${BOOTSTRAP}" ]]; then

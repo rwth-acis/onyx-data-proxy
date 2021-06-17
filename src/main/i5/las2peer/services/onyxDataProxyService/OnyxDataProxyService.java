@@ -119,6 +119,12 @@ public class OnyxDataProxyService extends RESTService {
 	 */
 	private boolean apiEnabled;
 	
+	/**
+	 * Whether personal user information (email, name) should be 
+	 * hashed before sending it to MobSOS.
+	 */
+	private boolean pseudonymizationEnabled;
+	
 	private OpalAPI api;
 	
 	/**
@@ -290,7 +296,7 @@ public class OnyxDataProxyService extends RESTService {
 		}
 		
 		// generate xAPI statements
-		List<Pair<String, List<String>>> xApiStatements = ResultZipParser.processResults(studentMappings, am, logger);
+		List<Pair<String, List<String>>> xApiStatements = ResultZipParser.processResults(studentMappings, am, logger, false);
 		// need to set context for monitoring
 		context = Context.get();
 		// send statements to MobSOS
@@ -380,7 +386,7 @@ public class OnyxDataProxyService extends RESTService {
 						logger.info("Getting updates for node " + nodeID + " in course " + courseID + " since " + lastCheckedStr);
 						try {
 							List<Pair<String, List<String>>> xApiStatements = api.getResultsAfter(String.valueOf(courseID), 
-									nodeID, lastChecked, courseElementsMap.get(courseID));
+									nodeID, lastChecked, courseElementsMap.get(courseID), pseudonymizationEnabled);
 						    monitorResultStatements(xApiStatements);
 						} catch (NodeNotAssessableException e) {
 							// this course node is not assessable

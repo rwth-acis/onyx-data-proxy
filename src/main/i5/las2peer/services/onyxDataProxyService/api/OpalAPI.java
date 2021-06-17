@@ -100,13 +100,15 @@ public class OpalAPI {
 	 * @param nodeId Id of the node where assessment results should be fetched for.
 	 * @param lastChecked Timestamp since when results should be fetched.
 	 * @param courseElements 
+	 * @param pseudonymizationEnabled Whether personal information (email, name) should be hashed.
 	 * @return List containing Pair objects. Each of these Pair objects contains an assessment result
 	 *         statement (left) and a list of its corresponding item result statements (right).
 	 * @throws NodeNotAssessableException If the given node is not assessable or the course does not exist.
 	 * @throws OpalAPIException If something else with the request to Opal API went wrong.
 	 */
 	public List<Pair<String, List<String>>> getResultsAfter(String courseId, String nodeId, long lastChecked,
-			List<Pair<courseNodeVO, Boolean>> courseElements) throws NodeNotAssessableException, OpalAPIException {
+			List<Pair<courseNodeVO, Boolean>> courseElements, boolean pseudonymizationEnabled) 
+					throws NodeNotAssessableException, OpalAPIException {
 		HttpClient c = login();
 		
 		// find course element
@@ -183,7 +185,7 @@ public class OpalAPI {
 					am.setDescription(courseElement.learningObjectives);
 					am.setTitle(courseElement.shortTitle);
 					
-					return ResultZipParser.processResults(studentMappings, am, logger);
+					return ResultZipParser.processResults(studentMappings, am, logger, pseudonymizationEnabled);
 				} catch (IOException e) {
 					e.printStackTrace();
 					throw new OpalAPIException("Error downloading zip from secret link.");
