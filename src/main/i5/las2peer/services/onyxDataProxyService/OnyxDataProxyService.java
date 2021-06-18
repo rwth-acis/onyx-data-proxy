@@ -296,7 +296,7 @@ public class OnyxDataProxyService extends RESTService {
 		}
 		
 		// generate xAPI statements
-		List<Pair<String, List<String>>> xApiStatements = ResultZipParser.processResults(studentMappings, am, logger, false);
+		List<Pair<String, List<String>>> xApiStatements = ResultZipParser.processResults(studentMappings, am, logger, pseudonymizationEnabled);
 		// need to set context for monitoring
 		context = Context.get();
 		// send statements to MobSOS
