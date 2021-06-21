@@ -12,6 +12,7 @@ import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.CorrectRe
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ItemResult;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.OutcomeVariable;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ResponseVariable;
+import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.TemplateVariable;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.TestResult;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.Value;
 
@@ -70,6 +71,8 @@ public class AssessmentResultHandler extends DefaultHandler {
 				((OutcomeVariable) currentParents.peek()).setValue(value);
 			} else if (currentParents.peek() instanceof CorrectResponse) {
 				((CorrectResponse) currentParents.peek()).setValue(value);
+			} else if (currentParents.peek() instanceof TemplateVariable) {
+				((TemplateVariable) currentParents.peek()).setValue(value);
 			}
 			currentParents.add(value);
 		} else if (qName.equalsIgnoreCase("outcomeVariable")) {
@@ -86,6 +89,18 @@ public class AssessmentResultHandler extends DefaultHandler {
 				((ItemResult) currentParents.peek()).addOutcomeVariable(outcomeVariable);
 			}
 			currentParents.add(outcomeVariable);
+		} else if (qName.equalsIgnoreCase("templateVariable")) {
+			TemplateVariable templateVariable = new TemplateVariable();
+			templateVariable.setIdentifier(attributes.getValue("identifier"));
+			templateVariable.setCardinality(attributes.getValue("cardinality"));
+			templateVariable.setBaseType(attributes.getValue("baseType"));
+			if (currentParents.peek() instanceof TestResult) {
+				((TestResult) currentParents.peek()).addTemplateVariable(templateVariable);
+			}
+			if (currentParents.peek() instanceof ItemResult) {
+				((ItemResult) currentParents.peek()).addTemplateVariable(templateVariable);
+			}
+			currentParents.add(templateVariable);
 		} else if (qName.equalsIgnoreCase("itemResult")) {
 			ItemResult itemResult = new ItemResult();
 			itemResult.setIdentifier(attributes.getValue("identifier"));
@@ -118,6 +133,8 @@ public class AssessmentResultHandler extends DefaultHandler {
 		} else if (qName.equalsIgnoreCase("responseVariable")) {
 			currentParents.pop();
 		} else if (qName.equalsIgnoreCase("outcomeVariable")) {
+			currentParents.pop();
+		} else if (qName.equalsIgnoreCase("templateVariable")) {
 			currentParents.pop();
 		} else if (qName.equalsIgnoreCase("itemResult")) {
 			currentParents.pop();

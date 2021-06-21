@@ -6,6 +6,7 @@ import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.Assessmen
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ItemResult;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.OutcomeVariable;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ResponseVariable;
+import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.TemplateVariable;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentMetadata;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentUser;
 
@@ -84,6 +85,14 @@ public class StatementBuilder {
 		}
 
 		result.put("score", score);
+		
+		for (TemplateVariable tv : assessmentResult.getTestResult().getTemplateVariables()) {
+			if (tv.getIdentifier().equalsIgnoreCase("studienID")) {
+				JSONObject contextExtensions = new JSONObject();
+				contextExtensions.put("https://tech4comp.de/xapi/context/extensions/studienID", String.valueOf(tv.getValue().getValue()));
+			    context.put("extensions", contextExtensions);
+			}
+		}
 
 		xApiStatement.put("actor", actor);
 		xApiStatement.put("verb", verb);

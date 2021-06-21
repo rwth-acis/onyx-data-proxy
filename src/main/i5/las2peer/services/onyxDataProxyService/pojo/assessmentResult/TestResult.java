@@ -8,10 +8,12 @@ public class TestResult {
 	private String currentItemIndex;
 	private ArrayList<ResponseVariable> responseVariables;
 	private ArrayList<OutcomeVariable> outcomeVariables;
+	private ArrayList<TemplateVariable> templateVariables;
 
 	public TestResult() {
 		this.responseVariables = new ArrayList<ResponseVariable>();
 		this.outcomeVariables = new ArrayList<OutcomeVariable>();
+		this.templateVariables = new ArrayList<TemplateVariable>();
 	}
 
 	public String getIdentifier() {
@@ -61,11 +63,23 @@ public class TestResult {
 	public void addOutcomeVariable(OutcomeVariable outcomeVariable) {
 		this.outcomeVariables.add(outcomeVariable);
 	}
+	
+	public ArrayList<TemplateVariable> getTemplateVariables() {
+		return templateVariables;
+	}
+	
+	public void setTemplateVariables(ArrayList<TemplateVariable> templateVariables) {
+		this.templateVariables = templateVariables;
+	}
+	
+	public void addTemplateVariable(TemplateVariable templateVariable) {
+		this.templateVariables.add(templateVariable);
+	}
 
 	@Override
 	public String toString() {
 		return "ClassPojo [identifier = " + identifier + ", datestamp = " + datestamp + ", currentItemIndex = "
 				+ currentItemIndex + ", responseVariables = " + responseVariables + ", outcomeVariables = "
-				+ outcomeVariables + "]";
+				+ outcomeVariables + ", templateVariables = " + templateVariables + "]";
 	}
 }
