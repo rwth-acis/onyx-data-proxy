@@ -88,8 +88,14 @@ public class OnyxDataProxyService extends RESTService {
 	private final static int OPAL_DATA_STREAM_PERIOD = 60; // Every minute
 	private final static int OPAL_STATISTICS_STREAM_PERIOD = 1; // every day
 	
+	/**
+	 * How often the course elements map should be updated (in minutes).
+	 */
+	private final static int OPAL_COURSE_ELEMENTS_UPDATE_PERIOD = 15;
+	
 	private static ScheduledExecutorService dataStreamThread = null;
 	private static ScheduledExecutorService statisticsStreamThread = null;
+	private static ScheduledExecutorService courseElementsUpdateThread = null;
 	private static Context context = null;
 	
 	private static long lastChecked = 0;
@@ -125,7 +131,7 @@ public class OnyxDataProxyService extends RESTService {
 	 */
 	private boolean pseudonymizationEnabled;
 	
-	private OpalAPI api;
+	private static OpalAPI api;
 	
 	/**
 	 * Maps every course id to a list of Pair objects containing the 
@@ -200,11 +206,13 @@ public class OnyxDataProxyService extends RESTService {
 	 * Fetches the course elements from Opal API for every course ID and updates
 	 * the courseElementsMap.
 	 */
-	private void updateCourseElementsMap() {
+	private static void updateCourseElementsMap() {
+		HashMap<Long, List<Pair<courseNodeVO, Boolean>>> courseElementsMapOld = (HashMap<Long, List<Pair<courseNodeVO, Boolean>>>) courseElementsMap.clone();
+		
 		courseElementsMap.clear();
 		for(long courseID : courses) {
 			try {
-				logger.info("Loading course elements for course " + courseID);
+				logger.warning("Loading course elements for course " + courseID);
 				// fetch course nodes from Opal API
 				List<courseNodeVO> courseNodes = api.getCourseElements(String.valueOf(courseID));
 				// add the assessable flag to every node
@@ -213,13 +221,47 @@ public class OnyxDataProxyService extends RESTService {
 				List<Pair<courseNodeVO, Boolean>> courseNodesWithAssessableFlag = new ArrayList<>();
 				for(courseNodeVO courseNode : courseNodes) {
 					logger.info("Node: " + courseNode.id);
-					courseNodesWithAssessableFlag.add(new MutablePair<>(courseNode, true));
+					boolean assessable = getAssessableFlagValue(courseElementsMapOld, courseID, courseNode);
+					courseNodesWithAssessableFlag.add(new MutablePair<>(courseNode, assessable));
 				}
 				courseElementsMap.put(courseID, courseNodesWithAssessableFlag);
 			} catch (OpalAPIException e) {
 				logger.severe("Loading course elements for course " + courseID + " failed.");
 				e.printStackTrace();
 			}
+		}
+	}
+	
+	/**
+	 * Checks if the old courseElementsMap already contained the course and the courseNode.
+	 * If the old map already contained the courseNode, then it returns the previously stored
+	 * value of the assessable flag.
+	 * Otherwise it returns true, because we do not know yet whether the node is assessable, but 
+	 * after we fetch the results for it for the first time (in data stream thread) we will know it
+	 * and the flag gets updated.
+	 * @param courseElementsMapOld
+	 * @param courseID
+	 * @param courseNode
+	 * @return
+	 */
+	private static boolean getAssessableFlagValue(HashMap<Long, List<Pair<courseNodeVO, Boolean>>> courseElementsMapOld, long courseID,
+			courseNodeVO courseNode) {
+		// check if course existed in courseElementsMap
+		if(courseElementsMapOld.containsKey(courseID)) {
+			// check if courseNode already existed previously
+			List<Pair<courseNodeVO, Boolean>> courseNodesWithAssessableFlag = courseElementsMapOld.get(courseID);
+			for(Pair<courseNodeVO, Boolean> pair : courseNodesWithAssessableFlag) {
+				if(pair.getLeft().id.equals(courseNode.id)) {
+					return pair.getRight();
+				}
+			}
+			// courseNode is a new one (set flag to true, until we know if node is assessable)
+			return true;
+		} else {
+			// the course is not part of courseElementsMapOld
+			// every course node should be flagged as assessable first (then later flag might be set to false,
+			// if we know that it is non-assessable)
+			return true;
 		}
 	}
 
@@ -358,6 +400,12 @@ public class OnyxDataProxyService extends RESTService {
 			dataStreamThread.scheduleAtFixedRate(new DataStreamThread(), 30, OPAL_DATA_STREAM_PERIOD, TimeUnit.SECONDS);
 			statisticsStreamThread = Executors.newSingleThreadScheduledExecutor();
 			statisticsStreamThread.scheduleAtFixedRate(new StatisticsStreamThread(), 0, OPAL_STATISTICS_STREAM_PERIOD, TimeUnit.DAYS);
+			
+		    // start thread to update the course elements map regularly
+			courseElementsUpdateThread = Executors.newSingleThreadScheduledExecutor();
+			courseElementsUpdateThread.scheduleAtFixedRate(new CourseElementsUpdateThread(), 
+					OPAL_COURSE_ELEMENTS_UPDATE_PERIOD, OPAL_COURSE_ELEMENTS_UPDATE_PERIOD, TimeUnit.MINUTES);
+			
 			return Response.status(Status.OK).entity("Thread started.").build();
 		} else {
 			return Response.status(Status.BAD_REQUEST).entity("Thread already running.").build();
@@ -431,6 +479,14 @@ public class OnyxDataProxyService extends RESTService {
 			}
 			
 			lastCheckedStatistics = now;
+		}
+	}
+	
+	private class CourseElementsUpdateThread implements Runnable {
+		@Override
+		public void run() {
+			logger.warning("running course elements update thread");
+			updateCourseElementsMap();
 		}
 	}
 	
