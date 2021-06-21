@@ -77,8 +77,8 @@ public class StatementBuilder {
 			}
 		}
 		
-		if(score.has("raw") && score.has("max")) {
-			score.put("scaled", score.getDouble("raw") / score.getDouble("max"));	
+		if(score.has("raw") && score.has("max") && score.getDouble("max") != 0) {
+			score.put("scaled", score.getDouble("raw") / score.getDouble("max"));
 		} else {
 			score.put("scaled", 0);
 		}
@@ -142,8 +142,8 @@ public class StatementBuilder {
 			}
 		}
 		
-		if(score.has("raw") && score.has("max")) {
-			score.put("scaled", score.getDouble("raw") / score.getDouble("max"));	
+		if(score.has("raw") && score.has("max") && score.getDouble("max") != 0) {
+			score.put("scaled", score.getDouble("raw") / score.getDouble("max"));
 		} else {
 			score.put("scaled", 0);
 		}
