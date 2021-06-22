@@ -3,6 +3,7 @@ package i5.las2peer.services.onyxDataProxyService.api;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -15,6 +16,7 @@ import javax.xml.bind.JAXB;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.cookie.CookiePolicy;
 import org.apache.commons.httpclient.methods.GetMethod;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -78,7 +80,10 @@ public class OpalAPI {
 		String body;
 		try {
 			responseCode = c.executeMethod(method);
-			body = method.getResponseBodyAsString();
+			
+			StringWriter writer = new StringWriter();
+			IOUtils.copy(method.getResponseBodyAsStream(), writer, "UTF-8");
+		    body = writer.toString();
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new OpalAPIException("Error fetching course elements.");
@@ -131,7 +136,10 @@ public class OpalAPI {
 		String body;
 		try {
 			responseCode = c.executeMethod(method);
-			body = method.getResponseBodyAsString();
+			
+			StringWriter writer = new StringWriter();
+			IOUtils.copy(method.getResponseBodyAsStream(), writer, "UTF-8");
+		    body = writer.toString();
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new OpalAPIException("Error fetching results.");
@@ -236,7 +244,10 @@ public class OpalAPI {
 		String body;
 		try {
 			responseCode = c.executeMethod(method);
-			body = method.getResponseBodyAsString();
+			
+			StringWriter writer = new StringWriter();
+			IOUtils.copy(method.getResponseBodyAsStream(), writer, "UTF-8");
+		    body = writer.toString();
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new OpalAPIException("Error fetching course access statistics.");
@@ -286,15 +297,22 @@ public class OpalAPI {
 		method.getParams().setCookiePolicy(CookiePolicy.RFC_2109);
 
 		int responseCode;
+		String body;
 		try {
 			responseCode = client.executeMethod(method);
+			
+			StringWriter writer = new StringWriter();
+			IOUtils.copy(method.getResponseBodyAsStream(), writer, "UTF-8");
+		    body = writer.toString();
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new OpalAPIException("Executing GET request for login failed.");
 		}
 
-		if (responseCode != 200)
+		if (responseCode != 200) {
+			logger.warning("Login failed with code: " + responseCode + ", body: " + body);
 			throw new OpalAPIException("Login failed.");
+		}
 
 		return client;
 	}
