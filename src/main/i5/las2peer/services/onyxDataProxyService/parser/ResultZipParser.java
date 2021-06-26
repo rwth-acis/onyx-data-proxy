@@ -15,6 +15,7 @@ import org.json.JSONObject;
 import i5.las2peer.logging.L2pLogger;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.AssessmentResult;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ItemResult;
+import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.TemplateVariable;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentMetadata;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentUser;
 import i5.las2peer.services.onyxDataProxyService.utils.PseudonymizationHelper;
@@ -83,13 +84,23 @@ public class ResultZipParser {
 				try {
 					xml = new String(Files.readAllBytes(onyxFile.toPath()));
 					AssessmentResult ar = AssessmentResultParser.parseAssessmentResult(xml);
+					
+					// create a list containing all the template variables from the result
+					// => add template variables from both test result and item results
+					ArrayList<TemplateVariable> templateVariables = new ArrayList<>();
+					templateVariables.addAll(ar.getTestResult().getTemplateVariables());
+					for (ItemResult ir : ar.getFilteredItemResults()) {
+						templateVariables.addAll(ir.getTemplateVariables());
+					}
 
-					String assessmentResultStatement = StatementBuilder.createAssessmentResultStatement(ar, user, am).toString();
+					String assessmentResultStatement = StatementBuilder.createAssessmentResultStatement(ar, user, am,
+							templateVariables).toString();
 					// append users email to statement
 					assessmentResultStatement += "*" + email;
 					List<String> itemResultStatements = new ArrayList<>();
 					for (ItemResult ir : ar.getFilteredItemResults()) {
-						String xApiStatement = StatementBuilder.createItemResultStatement(ir, user, am).toString();
+						String xApiStatement = StatementBuilder.createItemResultStatement(ir, user, am,
+								templateVariables).toString();
 						itemResultStatements.add(xApiStatement.toString() + "*" + email);
 					}
 					xApiStatements.add(Pair.of(assessmentResultStatement, itemResultStatements));
