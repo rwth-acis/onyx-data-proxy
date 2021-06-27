@@ -423,6 +423,7 @@ public class OnyxDataProxyService extends RESTService {
 			
 			DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 			String lastCheckedStr = formatter.format(lastChecked);
+			String nowStr = formatter.format(now);
 			
 			for (long courseID : courses) {
 				for(Pair<courseNodeVO, Boolean> courseNode : courseElementsMap.get(courseID)) {
@@ -431,10 +432,11 @@ public class OnyxDataProxyService extends RESTService {
 					boolean assessable = courseNode.getRight();
 					if(assessable) {
 						String nodeID = courseNode.getLeft().id;
-						logger.info("Getting updates for node " + nodeID + " in course " + courseID + " since " + lastCheckedStr);
+						logger.warning("Getting updates for node " + nodeID + " in course " + courseID + 
+								" between " + lastCheckedStr + " and " + nowStr);
 						try {
 							List<Pair<String, List<String>>> xApiStatements = api.getResultsAfter(String.valueOf(courseID), 
-									nodeID, lastChecked, courseElementsMap.get(courseID), pseudonymizationEnabled);
+									nodeID, lastChecked, now, courseElementsMap.get(courseID), pseudonymizationEnabled);
 						    monitorResultStatements(xApiStatements);
 						} catch (NodeNotAssessableException e) {
 							// this course node is not assessable

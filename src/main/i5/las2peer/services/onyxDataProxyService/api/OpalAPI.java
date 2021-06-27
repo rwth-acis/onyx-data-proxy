@@ -104,6 +104,7 @@ public class OpalAPI {
 	 * @param courseId Id of the course.
 	 * @param nodeId Id of the node where assessment results should be fetched for.
 	 * @param lastChecked Timestamp since when results should be fetched.
+	 * @param checkUntil Timestamp end of the interval for which results should be fetched.
 	 * @param courseElements 
 	 * @param pseudonymizationEnabled Whether personal information (email, name) should be hashed.
 	 * @return List containing Pair objects. Each of these Pair objects contains an assessment result
@@ -112,7 +113,7 @@ public class OpalAPI {
 	 * @throws OpalAPIException If something else with the request to Opal API went wrong.
 	 */
 	public List<Pair<String, List<String>>> getResultsAfter(String courseId, String nodeId, long lastChecked,
-			List<Pair<courseNodeVO, Boolean>> courseElements, boolean pseudonymizationEnabled) 
+			long checkUntil, List<Pair<courseNodeVO, Boolean>> courseElements, boolean pseudonymizationEnabled) 
 					throws NodeNotAssessableException, OpalAPIException {
 		HttpClient c = login();
 		
@@ -128,7 +129,7 @@ public class OpalAPI {
 		if(courseElement == null) 
 			throw new OpalAPIException("Given courseElements list does not contain an element with the nodeId " + nodeId);
 
-		String uri = OpalAPI.getTimeResultsURI(courseId, nodeId, lastChecked);
+		String uri = OpalAPI.getTimeResultsURI(courseId, nodeId, lastChecked, checkUntil);
 		GetMethod method = new GetMethod(uri);
 		method.getParams().setCookiePolicy(CookiePolicy.RFC_2109);
 
@@ -317,10 +318,17 @@ public class OpalAPI {
 		return client;
 	}
 	
-	private static String getTimeResultsURI(String courseId, String nodeId, long lastChecked) {
+	/**
+	 * URI to fetch results between lastChecked and checkUntil.
+	 * @param courseId
+	 * @param nodeId
+	 * @param lastChecked Start of the interval for which results should be fetched.
+	 * @param checkUntil End of the interval for which results should be fetched.
+	 * @return
+	 */
+	private static String getTimeResultsURI(String courseId, String nodeId, long lastChecked, long checkUntil) {
 		DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-		long now = System.currentTimeMillis();
-		String endDate = formatter.format(now);
+		String endDate = formatter.format(checkUntil);
 		String lastCheckedStr = formatter.format(lastChecked);
 		
 		return OpalAPI.getResultsURI(courseId, nodeId) + "?startdate=" + lastCheckedStr + "&enddate=" + endDate;
