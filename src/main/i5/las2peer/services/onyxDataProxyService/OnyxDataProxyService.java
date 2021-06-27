@@ -444,6 +444,10 @@ public class OnyxDataProxyService extends RESTService {
 						} catch (OpalAPIException e) {
 							e.printStackTrace();
 							logger.severe("Error: " + e.getMessage());
+						} catch (Exception e) {
+							e.printStackTrace();
+							logger.severe("Unknown error in data stream thread:");
+							logger.severe(e.getMessage());
 						}
 					}
 				}
