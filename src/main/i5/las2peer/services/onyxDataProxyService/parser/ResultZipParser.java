@@ -15,8 +15,10 @@ import org.json.JSONObject;
 import i5.las2peer.logging.L2pLogger;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.AssessmentResult;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ItemResult;
+import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.TemplateVariable;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentMetadata;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentUser;
+import i5.las2peer.services.onyxDataProxyService.utils.PseudonymizationHelper;
 import i5.las2peer.services.onyxDataProxyService.utils.ZipHelper;
 import i5.las2peer.services.onyxDataProxyService.xApi.StatementBuilder;
 
@@ -28,10 +30,12 @@ public class ResultZipParser {
 	 * The zip should already be extracted to the tmp folder before calling this method.
 	 * @param studentMappings
 	 * @param am
+	 * @param logger
+	 * @param pseudonymizationEnabled Whether personal information (email, name) should be hashed.
 	 * @return
 	 */
 	public static List<Pair<String, List<String>>> processResults(JSONArray studentMappings, AssessmentMetadata am,
-			L2pLogger logger) {
+			L2pLogger logger, boolean pseudonymizationEnabled) {
 		List<Pair<String, List<String>>> xApiStatements = new ArrayList<>();
 
 		for (Object mapping : studentMappings) {
@@ -42,6 +46,13 @@ public class ResultZipParser {
 				String firstName = mappingJSON.getString("firstName");
 				String lastName = mappingJSON.getString("lastName");
 
+				// pseudonymization
+				if(pseudonymizationEnabled) {
+					email = PseudonymizationHelper.pseudonomize(email);
+					firstName = PseudonymizationHelper.pseudonomize(firstName);
+					lastName = PseudonymizationHelper.pseudonomize(lastName);
+				}
+				
 				AssessmentUser user = new AssessmentUser();
 				user.setFirstName(firstName);
 				user.setLastName(lastName);
@@ -73,14 +84,24 @@ public class ResultZipParser {
 				try {
 					xml = new String(Files.readAllBytes(onyxFile.toPath()));
 					AssessmentResult ar = AssessmentResultParser.parseAssessmentResult(xml);
+					
+					// create a list containing all the template variables from the result
+					// => add template variables from both test result and item results
+					ArrayList<TemplateVariable> templateVariables = new ArrayList<>();
+					templateVariables.addAll(ar.getTestResult().getTemplateVariables());
+					for (ItemResult ir : ar.getFilteredItemResults()) {
+						templateVariables.addAll(ir.getTemplateVariables());
+					}
 
-					String assessmentResultStatement = StatementBuilder.createAssessmentResultStatement(ar, user, am).toString();
+					String assessmentResultStatement = StatementBuilder.createAssessmentResultStatement(ar, user, am,
+							templateVariables).toString();
 					// append users email to statement
-					assessmentResultStatement += "*" + user.getEmail();
+					assessmentResultStatement += "*" + email;
 					List<String> itemResultStatements = new ArrayList<>();
 					for (ItemResult ir : ar.getFilteredItemResults()) {
-						String xApiStatement = StatementBuilder.createItemResultStatement(ir, user, am).toString();
-						itemResultStatements.add(xApiStatement.toString() + "*" + user.getEmail());
+						String xApiStatement = StatementBuilder.createItemResultStatement(ir, user, am,
+								templateVariables).toString();
+						itemResultStatements.add(xApiStatement.toString() + "*" + email);
 					}
 					xApiStatements.add(Pair.of(assessmentResultStatement, itemResultStatements));
 				} catch (IOException e) {

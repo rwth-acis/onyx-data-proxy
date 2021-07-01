@@ -1,11 +1,14 @@
 package i5.las2peer.services.onyxDataProxyService.xApi;
 
+import java.util.ArrayList;
+
 import org.json.JSONObject;
 
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.AssessmentResult;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ItemResult;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.OutcomeVariable;
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ResponseVariable;
+import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.TemplateVariable;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentMetadata;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentUser;
 
@@ -31,7 +34,16 @@ public class StatementBuilder {
 		return verb;
 	}
 
-	public static JSONObject createAssessmentResultStatement(AssessmentResult assessmentResult, AssessmentUser user, AssessmentMetadata metadata) {
+	/**
+	 * Creates a xAPI statement for the given assessment result which gets returned as a JSONObject.
+	 * @param assessmentResult
+	 * @param user
+	 * @param metadata
+	 * @param templateVariables All the template variables (from assessment result and from the item results)
+	 * @return xAPI statement corresponding to the given assessment result as JSONObject.
+	 */
+	public static JSONObject createAssessmentResultStatement(AssessmentResult assessmentResult, AssessmentUser user,
+			AssessmentMetadata metadata, ArrayList<TemplateVariable> templateVariables) {
 		JSONObject xApiStatement = new JSONObject();
 		JSONObject actor = StatementBuilder.createActor(user, "https://bildungsportal.sachsen.de/opal/");
 		JSONObject verb = StatementBuilder.createVerb();
@@ -77,25 +89,41 @@ public class StatementBuilder {
 			}
 		}
 		
-		if(score.has("raw") && score.has("max")) {
-			score.put("scaled", score.getDouble("raw") / score.getDouble("max"));	
+		if(score.has("raw") && score.has("max") && score.getDouble("max") != 0) {
+			score.put("scaled", score.getDouble("raw") / score.getDouble("max"));
 		} else {
 			score.put("scaled", 0);
 		}
 
 		result.put("score", score);
+		
+		for (TemplateVariable tv : templateVariables) {
+			if (tv.getIdentifier().equalsIgnoreCase("studienID")) {
+				JSONObject contextExtensions = new JSONObject();
+				contextExtensions.put("https://tech4comp.de/xapi/context/extensions/studienID", String.valueOf(tv.getValue().getValue()));
+			    context.put("extensions", contextExtensions);
+			}
+		}
 
 		xApiStatement.put("actor", actor);
 		xApiStatement.put("verb", verb);
 		xApiStatement.put("object", object);
 		xApiStatement.put("result", result);
 		xApiStatement.put("context", context);
-		xApiStatement.put("timestamp", assessmentResult.getTestResult().getDatestamp() + "Z");
+		xApiStatement.put("timestamp", assessmentResult.getTestResult().getDatestamp() + "+02:00");
 		return xApiStatement;
 	}
 
-	public static JSONObject createItemResultStatement(ItemResult ir,
-			AssessmentUser user, AssessmentMetadata metadata) {
+	/**
+	 * Creates a xAPI statement for the given item result which gets returned as a JSONObject.
+	 * @param ir
+	 * @param user
+	 * @param metadata
+	 * @param templateVariables All the template variables (from assessment result and from the item results)
+	 * @return xAPI statement corresponding to the given item result as JSONObject.
+	 */
+	public static JSONObject createItemResultStatement(ItemResult ir, AssessmentUser user, AssessmentMetadata metadata,
+			ArrayList<TemplateVariable> templateVariables) {
 		JSONObject xApiStatement = new JSONObject();
 		JSONObject actor = StatementBuilder.createActor(user, "https://bildungsportal.sachsen.de/opal/");
 		JSONObject verb = StatementBuilder.createVerb();
@@ -142,8 +170,8 @@ public class StatementBuilder {
 			}
 		}
 		
-		if(score.has("raw") && score.has("max")) {
-			score.put("scaled", score.getDouble("raw") / score.getDouble("max"));	
+		if(score.has("raw") && score.has("max") && score.getDouble("max") != 0) {
+			score.put("scaled", score.getDouble("raw") / score.getDouble("max"));
 		} else {
 			score.put("scaled", 0);
 		}
@@ -154,17 +182,26 @@ public class StatementBuilder {
 		JSONObject scoreExtensions = new JSONObject();
 		scoreExtensions.put("https://tech4comp.de/xapi/context/extensions/sessionStatus", ir.getSessionStatus());
 		result.put("extensions", scoreExtensions);
+		
+		for (TemplateVariable tv : templateVariables) {
+			if (tv.getIdentifier().equalsIgnoreCase("studienID")) {
+				JSONObject contextExtensions = new JSONObject();
+				contextExtensions.put("https://tech4comp.de/xapi/context/extensions/studienID", String.valueOf(tv.getValue().getValue()));
+			    context.put("extensions", contextExtensions);
+			}
+		}
 
 		xApiStatement.put("actor", actor);
 		xApiStatement.put("verb", verb);
 		xApiStatement.put("object", object);
 		xApiStatement.put("result", result);
 		xApiStatement.put("context", context);
-		xApiStatement.put("timestamp", ir.getDateStamp() + "Z");
+		xApiStatement.put("timestamp", ir.getDateStamp() + "+02:00");
 		return xApiStatement;
 	}
 	
-	public static JSONObject createCourseNodeAccessStatisticStatement(String courseId, String nodeId, String nodeName, int accesses, String date) {
+	public static JSONObject createCourseNodeAccessStatisticStatement(String courseId, String nodeId, String nodeName,
+			int accesses, String date) {
 		JSONObject xApiStatement = new JSONObject();
 		JSONObject actor = createGroupForCourse(courseId, "https://bildungsportal.sachsen.de/opal/");
 		JSONObject verb = createVerbViewed();

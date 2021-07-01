@@ -51,6 +51,7 @@ Please make sure to add the following environment variables to the "docker run" 
 |OPAL_USERNAME| Email address / username of the Opal account used to access the API.               |
 |OPAL_PASSWORD| Password of the Opal account used to access the API.                               |
 |COURSE_LIST  | Comma separated list of the course ids that should be monitored using the Opal API.|
+|PSEUDONYMIZATION_ENABLED | true or false depending on whether personal user information (email, name) should be hashed within the xAPI statement. |
 
 ### Node Launcher Variables
 

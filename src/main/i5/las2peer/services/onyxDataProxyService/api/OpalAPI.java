@@ -3,6 +3,7 @@ package i5.las2peer.services.onyxDataProxyService.api;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -15,6 +16,7 @@ import javax.xml.bind.JAXB;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.cookie.CookiePolicy;
 import org.apache.commons.httpclient.methods.GetMethod;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -78,7 +80,10 @@ public class OpalAPI {
 		String body;
 		try {
 			responseCode = c.executeMethod(method);
-			body = method.getResponseBodyAsString();
+			
+			StringWriter writer = new StringWriter();
+			IOUtils.copy(method.getResponseBodyAsStream(), writer, "UTF-8");
+		    body = writer.toString();
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new OpalAPIException("Error fetching course elements.");
@@ -99,14 +104,17 @@ public class OpalAPI {
 	 * @param courseId Id of the course.
 	 * @param nodeId Id of the node where assessment results should be fetched for.
 	 * @param lastChecked Timestamp since when results should be fetched.
+	 * @param checkUntil Timestamp end of the interval for which results should be fetched.
 	 * @param courseElements 
+	 * @param pseudonymizationEnabled Whether personal information (email, name) should be hashed.
 	 * @return List containing Pair objects. Each of these Pair objects contains an assessment result
 	 *         statement (left) and a list of its corresponding item result statements (right).
 	 * @throws NodeNotAssessableException If the given node is not assessable or the course does not exist.
 	 * @throws OpalAPIException If something else with the request to Opal API went wrong.
 	 */
 	public List<Pair<String, List<String>>> getResultsAfter(String courseId, String nodeId, long lastChecked,
-			List<Pair<courseNodeVO, Boolean>> courseElements) throws NodeNotAssessableException, OpalAPIException {
+			long checkUntil, List<Pair<courseNodeVO, Boolean>> courseElements, boolean pseudonymizationEnabled) 
+					throws NodeNotAssessableException, OpalAPIException {
 		HttpClient c = login();
 		
 		// find course element
@@ -121,7 +129,7 @@ public class OpalAPI {
 		if(courseElement == null) 
 			throw new OpalAPIException("Given courseElements list does not contain an element with the nodeId " + nodeId);
 
-		String uri = OpalAPI.getTimeResultsURI(courseId, nodeId, lastChecked);
+		String uri = OpalAPI.getTimeResultsURI(courseId, nodeId, lastChecked, checkUntil);
 		GetMethod method = new GetMethod(uri);
 		method.getParams().setCookiePolicy(CookiePolicy.RFC_2109);
 
@@ -129,7 +137,10 @@ public class OpalAPI {
 		String body;
 		try {
 			responseCode = c.executeMethod(method);
-			body = method.getResponseBodyAsString();
+			
+			StringWriter writer = new StringWriter();
+			IOUtils.copy(method.getResponseBodyAsStream(), writer, "UTF-8");
+		    body = writer.toString();
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new OpalAPIException("Error fetching results.");
@@ -183,7 +194,7 @@ public class OpalAPI {
 					am.setDescription(courseElement.learningObjectives);
 					am.setTitle(courseElement.shortTitle);
 					
-					return ResultZipParser.processResults(studentMappings, am, logger);
+					return ResultZipParser.processResults(studentMappings, am, logger, pseudonymizationEnabled);
 				} catch (IOException e) {
 					e.printStackTrace();
 					throw new OpalAPIException("Error downloading zip from secret link.");
@@ -234,7 +245,10 @@ public class OpalAPI {
 		String body;
 		try {
 			responseCode = c.executeMethod(method);
-			body = method.getResponseBodyAsString();
+			
+			StringWriter writer = new StringWriter();
+			IOUtils.copy(method.getResponseBodyAsStream(), writer, "UTF-8");
+		    body = writer.toString();
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new OpalAPIException("Error fetching course access statistics.");
@@ -284,23 +298,37 @@ public class OpalAPI {
 		method.getParams().setCookiePolicy(CookiePolicy.RFC_2109);
 
 		int responseCode;
+		String body;
 		try {
 			responseCode = client.executeMethod(method);
+			
+			StringWriter writer = new StringWriter();
+			IOUtils.copy(method.getResponseBodyAsStream(), writer, "UTF-8");
+		    body = writer.toString();
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new OpalAPIException("Executing GET request for login failed.");
 		}
 
-		if (responseCode != 200)
+		if (responseCode != 200) {
+			logger.warning("Login failed with code: " + responseCode + ", body: " + body);
 			throw new OpalAPIException("Login failed.");
+		}
 
 		return client;
 	}
 	
-	private static String getTimeResultsURI(String courseId, String nodeId, long lastChecked) {
+	/**
+	 * URI to fetch results between lastChecked and checkUntil.
+	 * @param courseId
+	 * @param nodeId
+	 * @param lastChecked Start of the interval for which results should be fetched.
+	 * @param checkUntil End of the interval for which results should be fetched.
+	 * @return
+	 */
+	private static String getTimeResultsURI(String courseId, String nodeId, long lastChecked, long checkUntil) {
 		DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-		long now = System.currentTimeMillis();
-		String endDate = formatter.format(now);
+		String endDate = formatter.format(checkUntil);
 		String lastCheckedStr = formatter.format(lastChecked);
 		
 		return OpalAPI.getResultsURI(courseId, nodeId) + "?startdate=" + lastCheckedStr + "&enddate=" + endDate;
