@@ -228,6 +228,15 @@ public class OnyxDataProxyService extends RESTService {
 			} catch (OpalAPIException e) {
 				logger.severe("Loading course elements for course " + courseID + " failed.");
 				e.printStackTrace();
+				
+				courseElementsMap = courseElementsMapOld;
+				break;
+			} catch (Exception e) {
+				logger.severe("Unknown error while updating course elements map: " + e.getMessage());
+				e.printStackTrace();
+				
+				courseElementsMap = courseElementsMapOld;
+				break;
 			}
 		}
 	}
@@ -417,45 +426,52 @@ public class OnyxDataProxyService extends RESTService {
 		public void run() {
 			logger.info("running data stream thread");
 			
-			// Get current time
-			TimeZone.setDefault(TimeZone.getTimeZone("Europe/Berlin"));
-			long now = System.currentTimeMillis();
-			
-			DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-			String lastCheckedStr = formatter.format(lastChecked);
-			String nowStr = formatter.format(now);
-			
-			for (long courseID : courses) {
-				for(Pair<courseNodeVO, Boolean> courseNode : courseElementsMap.get(courseID)) {
-					// Note: initially every course node is flagged as assessable
-					// but this will be corrected after we get a 404 for the results of these nodes
-					boolean assessable = courseNode.getRight();
-					if(assessable) {
-						String nodeID = courseNode.getLeft().id;
-						logger.warning("Getting updates for node " + nodeID + " in course " + courseID + 
-								" between " + lastCheckedStr + " and " + nowStr);
-						try {
-							List<Pair<String, List<String>>> xApiStatements = api.getResultsAfter(String.valueOf(courseID), 
-									nodeID, lastChecked, now, courseElementsMap.get(courseID), pseudonymizationEnabled);
-						    monitorResultStatements(xApiStatements);
-						} catch (NodeNotAssessableException e) {
-							// this course node is not assessable
-							// we dont need to fetch the results for this node again
-							logger.info("Marking node " + nodeID + " as non-assessable.");
-							courseNode.setValue(false);
-						} catch (OpalAPIException e) {
-							e.printStackTrace();
-							logger.severe("Error: " + e.getMessage());
-						} catch (Exception e) {
-							e.printStackTrace();
-							logger.severe("Unknown error in data stream thread:");
-							logger.severe(e.getMessage());
+			try {
+				// Get current time
+				TimeZone.setDefault(TimeZone.getTimeZone("Europe/Berlin"));
+				long now = System.currentTimeMillis();
+
+				DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+				String lastCheckedStr = formatter.format(lastChecked);
+				String nowStr = formatter.format(now);
+
+				for (long courseID : courses) {
+					for(Pair<courseNodeVO, Boolean> courseNode : courseElementsMap.get(courseID)) {
+						// Note: initially every course node is flagged as assessable
+						// but this will be corrected after we get a 404 for the results of these nodes
+						boolean assessable = courseNode.getRight();
+						if(assessable) {
+							String nodeID = courseNode.getLeft().id;
+							logger.warning("Getting updates for node " + nodeID + " in course " + courseID + 
+									" between " + lastCheckedStr + " and " + nowStr);
+							try {
+								List<Pair<String, List<String>>> xApiStatements = api.getResultsAfter(String.valueOf(courseID), 
+										nodeID, lastChecked, now, courseElementsMap.get(courseID), pseudonymizationEnabled);
+								monitorResultStatements(xApiStatements);
+							} catch (NodeNotAssessableException e) {
+								// this course node is not assessable
+								// we dont need to fetch the results for this node again
+								logger.warning("Marking node " + nodeID + " as non-assessable.");
+								courseNode.setValue(false);
+							} catch (OpalAPIException e) {
+								e.printStackTrace();
+								logger.severe("Error: " + e.getMessage());
+							} catch (Exception e) {
+								e.printStackTrace();
+								logger.severe("Unknown error in data stream thread:");
+								logger.severe(e.getMessage());
+							}
 						}
 					}
 				}
+
+				lastChecked = now;
+
+			} catch (Exception e) {
+				logger.severe("Unknwon error 2 in data stream thread: ");
+				logger.severe(e.getMessage());
+				e.printStackTrace();
 			}
-			
-			lastChecked = now;
 		}
 	}
 	
