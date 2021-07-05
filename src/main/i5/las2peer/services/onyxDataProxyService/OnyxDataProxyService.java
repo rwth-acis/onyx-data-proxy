@@ -85,13 +85,13 @@ public class OnyxDataProxyService extends RESTService {
 	
 	private final static L2pLogger logger = L2pLogger.getInstance(OnyxDataProxyService.class.getName());
 
-	private final static int OPAL_DATA_STREAM_PERIOD = 60; // Every minute
-	private final static int OPAL_STATISTICS_STREAM_PERIOD = 1; // every day
+	private int OPAL_DATA_STREAM_PERIOD = 30; // Every 30 minutes
+	private int OPAL_STATISTICS_STREAM_PERIOD = 1; // every day
 	
 	/**
 	 * How often the course elements map should be updated (in minutes).
 	 */
-	private final static int OPAL_COURSE_ELEMENTS_UPDATE_PERIOD = 15;
+	private int OPAL_COURSE_ELEMENTS_UPDATE_PERIOD = 60;
 	
 	private static ScheduledExecutorService dataStreamThread = null;
 	private static ScheduledExecutorService statisticsStreamThread = null;
@@ -406,7 +406,7 @@ public class OnyxDataProxyService extends RESTService {
 			context = Context.get();
 			dataStreamThread = Executors.newSingleThreadScheduledExecutor();
 			// start dataStreamThread a bit later than statisticsStreamThread (otherwise we get login problems)
-			dataStreamThread.scheduleAtFixedRate(new DataStreamThread(), 30, OPAL_DATA_STREAM_PERIOD, TimeUnit.SECONDS);
+			dataStreamThread.scheduleAtFixedRate(new DataStreamThread(), 1, OPAL_DATA_STREAM_PERIOD, TimeUnit.MINUTES);
 			statisticsStreamThread = Executors.newSingleThreadScheduledExecutor();
 			statisticsStreamThread.scheduleAtFixedRate(new StatisticsStreamThread(), 0, OPAL_STATISTICS_STREAM_PERIOD, TimeUnit.DAYS);
 			

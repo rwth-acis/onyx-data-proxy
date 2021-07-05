@@ -52,6 +52,8 @@ Please make sure to add the following environment variables to the "docker run" 
 |OPAL_PASSWORD| Password of the Opal account used to access the API.                               |
 |COURSE_LIST  | Comma separated list of the course ids that should be monitored using the Opal API.|
 |PSEUDONYMIZATION_ENABLED | true or false depending on whether personal user information (email, name) should be hashed within the xAPI statement. |
+|DATA_STREAM_PERIOD | Fetching interval (in minutes) for new assessment results. Default value is 30 minutes. |
+|COURSE_ELEMENTS_UPDATE_PERIOD | Fetching interval (in minutes) for newly added e-tests that should be monitored. Default value is 60 minutes. |
 
 ### Node Launcher Variables
 
