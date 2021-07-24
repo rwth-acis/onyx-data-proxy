@@ -54,6 +54,7 @@ import i5.las2peer.services.onyxDataProxyService.parser.AssessmentMetadataParser
 import i5.las2peer.services.onyxDataProxyService.parser.ResultZipParser;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentMetadata;
 import i5.las2peer.services.onyxDataProxyService.utils.ZipHelper;
+import i5.las2peer.services.onyxDataProxyService.xApi.StatementBuilder;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
@@ -131,6 +132,20 @@ public class OnyxDataProxyService extends RESTService {
 	 */
 	private boolean pseudonymizationEnabled;
 	
+	/**
+	 * Whether template variables (from Onyx) with a specific prefix should 
+	 * be added to the xAPI statements automatically. The prefix can be
+	 * configured by using the templateVariablesInStatementsPrefix value.
+	 */
+	private boolean templateVariablesInStatements;
+	
+	/**
+	 * If templateVariablesInStatements is set to true, then the prefix
+	 * given here is used to filter the template variables (from Onyx) 
+	 * that should be added to the xAPI statements automatically.
+	 */
+	private String templateVariablesInStatementsPrefix;
+	
 	private static OpalAPI api;
 	
 	/**
@@ -150,6 +165,9 @@ public class OnyxDataProxyService extends RESTService {
 	 */
 	public OnyxDataProxyService() {
 		setFieldValues(); // This sets the values of the configuration file
+		StatementBuilder.templateVariablesInStatements = this.templateVariablesInStatements;
+		StatementBuilder.templateVariablesInStatementsPrefix = this.templateVariablesInStatementsPrefix;
+		
 		if(this.apiEnabled) {
 			this.api = new OpalAPI(opalUsername, opalPassword, logger);
 		    this.updateCourseList();

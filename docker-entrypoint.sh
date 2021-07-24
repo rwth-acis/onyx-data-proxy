@@ -30,6 +30,7 @@ export SERVICE=${SERVICE_NAME}.${SERVICE_CLASS}@${SERVICE_VERSION}
 [[ -z "${SERVICE_PASSPHRASE}" ]] && export SERVICE_PASSPHRASE='onyx'
 [[ -z "${DATA_STREAM_PERIOD}" ]] && export DATA_STREAM_PERIOD='30'
 [[ -z "${COURSE_ELEMENTS_UPDATE_PERIOD}" ]] && export COURSE_ELEMENTS_UPDATE_PERIOD='60'
+[[ -z "${TEMPLATE_VARIABLES_IN_STATEMENTS}" ]] && export TEMPLATE_VARIABLES_IN_STATEMENTS='false'
 
 # configure service properties
 function set_in_service_config {
@@ -43,6 +44,8 @@ set_in_service_config courseList ${COURSE_LIST}
 set_in_service_config pseudonymizationEnabled ${PSEUDONYMIZATION_ENABLED}
 set_in_service_config OPAL_DATA_STREAM_PERIOD ${DATA_STREAM_PERIOD}
 set_in_service_config OPAL_COURSE_ELEMENTS_UPDATE_PERIOD ${COURSE_ELEMENTS_UPDATE_PERIOD}
+set_in_service_config templateVariablesInStatements ${TEMPLATE_VARIABLES_IN_STATEMENTS}
+set_in_service_config templateVariablesInStatementsPrefix ${TEMPLATE_VARIABLES_IN_STATEMENTS_PREFIX}
 
 # wait for any bootstrap host to be available
 if [[ ! -z "${BOOTSTRAP}" ]]; then
