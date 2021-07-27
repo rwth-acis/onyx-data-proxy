@@ -217,6 +217,9 @@ public class StatementBuilder {
 		
 		for (TemplateVariable tv : templateVariables) {
 			String variableName = tv.getIdentifier();
+			if(tv.getValue() == null) {
+				continue;
+			}
 			String variableValue = String.valueOf(tv.getValue().getValue());
 			
 			if (variableName.equalsIgnoreCase("studienID")) {

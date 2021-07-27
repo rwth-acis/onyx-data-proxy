@@ -600,7 +600,7 @@ public class OnyxDataProxyService extends RESTService {
 				try {
 					List<String> xApiStatements = api.getCourseAccessStatisticsAfter(String.valueOf(courseID), 
 							courseElementsMap.get(courseID), lastCheckedStatistics);
-					monitorCourseAccessStatistics(xApiStatements);
+					monitorCourseAccessStatistics(xApiStatements, String.valueOf(courseID));
 				} catch (OpalAPIException e) {
 					e.printStackTrace();
 					logger.severe("Error: " + e.getMessage());
@@ -647,9 +647,10 @@ public class OnyxDataProxyService extends RESTService {
 	 * Sends the given course node access statistics to MobSOS.
 	 * @param xApiStatements
 	 */
-	private void monitorCourseAccessStatistics(List<String> xApiStatements) {
+	private void monitorCourseAccessStatistics(List<String> xApiStatements, String courseId) {
 		for(String statement : xApiStatements) {
-			statement = statement + "*" + this.opalUsername;
+			JSONObject obj = new JSONObject(statement);
+			statement = StatementBuilder.attachTokens(obj, courseId, this.opalUsername);
 			logger.info("Course node statistic: ");
 			logger.info(statement);
 			context.monitorEvent(MonitoringEvent.SERVICE_CUSTOM_MESSAGE_3, statement);
