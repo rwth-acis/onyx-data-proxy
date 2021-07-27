@@ -53,6 +53,8 @@ import i5.las2peer.services.onyxDataProxyService.api.OpalAPI.courseNodeVO;
 import i5.las2peer.services.onyxDataProxyService.parser.AssessmentMetadataParser;
 import i5.las2peer.services.onyxDataProxyService.parser.ResultZipParser;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentMetadata;
+import i5.las2peer.services.onyxDataProxyService.utils.StoreManagementHelper;
+import i5.las2peer.services.onyxDataProxyService.utils.StoreManagementParseException;
 import i5.las2peer.services.onyxDataProxyService.utils.ZipHelper;
 import i5.las2peer.services.onyxDataProxyService.xApi.StatementBuilder;
 import io.swagger.annotations.Api;
@@ -183,6 +185,20 @@ public class OnyxDataProxyService extends RESTService {
 			    TimeZone.setDefault(TimeZone.getTimeZone("Europe/Berlin"));
 			    lastCheckedStatistics = System.currentTimeMillis();
 		    }
+		}
+		
+		// check if store assignment is enabled (i.e. the file exists)
+		if(StoreManagementHelper.isStoreAssignmentEnabled()) {
+			logger.info("Found store assignment file, enabling assignment...");
+			try {
+				StoreManagementHelper.loadAssignments();
+				logger.info("Store assignment is enabled.");
+			} catch (IOException e) {
+				logger.severe("An error occurred while loading the assignment from file.");
+				e.printStackTrace();
+			}
+		} else {
+			logger.info("Store assignment is not enabled.");
 		}
 	}
 
@@ -365,7 +381,7 @@ public class OnyxDataProxyService extends RESTService {
 		}
 		
 		// generate xAPI statements
-		List<Pair<String, List<String>>> xApiStatements = ResultZipParser.processResults(studentMappings, am, logger, pseudonymizationEnabled);
+		List<Pair<String, List<String>>> xApiStatements = ResultZipParser.processResults(studentMappings, am, logger, pseudonymizationEnabled, null);
 		// need to set context for monitoring
 		context = Context.get();
 		// send statements to MobSOS
@@ -436,6 +452,65 @@ public class OnyxDataProxyService extends RESTService {
 			return Response.status(Status.OK).entity("Thread started.").build();
 		} else {
 			return Response.status(Status.BAD_REQUEST).entity("Thread already running.").build();
+		}
+	}
+	
+	/**
+	 * Method for setting the assignments of Onyx courses to stores.
+	 * Takes a properties file containing the course IDs and a comma-separated list of store client IDs as key-value
+	 * pairs.
+	 *
+	 * @param storesInputStream Input stream of the passed properties file.
+	 *
+	 * @return Status message
+	 */
+	@POST
+	@Path("/setStoreAssignment")
+	@Produces(MediaType.TEXT_PLAIN)
+	@Consumes(MediaType.MULTIPART_FORM_DATA)
+	@ApiResponses(
+			value = { @ApiResponse(code = HttpURLConnection.HTTP_OK, message = "Updated store assignment."),
+					@ApiResponse(code = HttpURLConnection.HTTP_UNAUTHORIZED, message = "Authorization required."),
+					@ApiResponse(code = HttpURLConnection.HTTP_FORBIDDEN, message = "Access denied.") })
+	public Response setStoreAssignment(@FormDataParam("storeAssignment") InputStream storesInputStream) {
+	    /*if (Context.getCurrent().getMainAgent() instanceof AnonymousAgent) {
+		    return Response.status(Status.UNAUTHORIZED).entity("Authorization required.").build();
+	    }*/
+
+		try {
+			StoreManagementHelper.updateAssignments(storesInputStream);
+			logger.info("Added store assignment.");
+			return Response.status(200).entity("Added store assignment with " +
+					StoreManagementHelper.numberOfAssignments() + " assignments.").build();
+		} catch (StoreManagementParseException e) {
+			return Response.status(HttpURLConnection.HTTP_INTERNAL_ERROR).entity(e.getMessage()).build();
+		}
+	}
+
+	/**
+	 * Method to disable the store assignment.
+	 *
+	 * @return Status message
+	 */
+	@POST
+	@Path("/disableStoreAssignment")
+	@Produces(MediaType.TEXT_PLAIN)
+	@ApiResponses(
+			value = { @ApiResponse(code = HttpURLConnection.HTTP_OK, message = "Disabled store assignment."),
+					@ApiResponse(code = HttpURLConnection.HTTP_UNAUTHORIZED, message = "Authorization required."),
+					@ApiResponse(code = HttpURLConnection.HTTP_FORBIDDEN, message = "Access denied."),
+					@ApiResponse(code = HttpURLConnection.HTTP_INTERNAL_ERROR, message = "Unable to disable store assignment.")})
+	public Response disableStoreAssignment() {
+	    /*if (Context.getCurrent().getMainAgent() instanceof AnonymousAgent) {
+		    return Response.status(Status.UNAUTHORIZED).entity("Authorization required.").build();
+	    }*/
+
+		boolean success = StoreManagementHelper.removeAssignmentFile();
+		if(success) {
+			StoreManagementHelper.resetAssignment();
+			return Response.status(Status.OK).entity("Disabled store assignment.").build();
+		} else {
+			return Response.status(HttpURLConnection.HTTP_INTERNAL_ERROR).entity("Unable to disable store assignment.").build();
 		}
 	}
 	

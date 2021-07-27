@@ -194,7 +194,7 @@ public class OpalAPI {
 					am.setDescription(courseElement.learningObjectives);
 					am.setTitle(courseElement.shortTitle);
 					
-					return ResultZipParser.processResults(studentMappings, am, logger, pseudonymizationEnabled);
+					return ResultZipParser.processResults(studentMappings, am, logger, pseudonymizationEnabled, courseId);
 				} catch (IOException e) {
 					e.printStackTrace();
 					throw new OpalAPIException("Error downloading zip from secret link.");

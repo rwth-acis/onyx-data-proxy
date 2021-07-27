@@ -2,6 +2,7 @@ package i5.las2peer.services.onyxDataProxyService.xApi;
 
 import java.util.ArrayList;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.AssessmentResult;
@@ -11,6 +12,7 @@ import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ResponseV
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.TemplateVariable;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentMetadata;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentUser;
+import i5.las2peer.services.onyxDataProxyService.utils.StoreManagementHelper;
 
 public class StatementBuilder {
 	
@@ -286,5 +288,34 @@ public class StatementBuilder {
 		display.put("en-US", "viewed");
 		verb.put("display", display);
 		return verb;
+	}
+	
+	public static String attachTokens(JSONObject statement, String courseID, String userEmail) {
+		JSONArray tokens = StatementBuilder.getStoreTokens(courseID, userEmail);
+		
+		JSONObject result = new JSONObject();
+		result.put("statement", statement);
+		result.put("tokens", tokens);
+		return result.toString();
+	}
+	
+	/**
+	 * Helper function for determining the correct client tokens according to the store assignment.
+	 *
+	 * @param courseID Course to which the statement belongs
+	 * @param userEmail Mail of the user / mail that should be used for the client, if no store is assigned.
+	 * @return
+	 */
+	public static JSONArray getStoreTokens(String courseID, String userEmail) {
+		ArrayList<String> tokens = new ArrayList<>();
+		if (courseID != null && StoreManagementHelper.isStoreAssignmentEnabled() &&
+				StoreManagementHelper.getAssignment(courseID) != null) {
+			for (String storeId : StoreManagementHelper.getAssignment(courseID)) {
+				tokens.add(storeId);
+			}
+		} else {
+			tokens.add(userEmail);
+		}
+		return new JSONArray(tokens);
 	}
 }
