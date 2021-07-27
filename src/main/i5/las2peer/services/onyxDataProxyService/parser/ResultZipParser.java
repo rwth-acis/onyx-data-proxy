@@ -35,7 +35,7 @@ public class ResultZipParser {
 	 * @return
 	 */
 	public static List<Pair<String, List<String>>> processResults(JSONArray studentMappings, AssessmentMetadata am,
-			L2pLogger logger, boolean pseudonymizationEnabled) {
+			L2pLogger logger, boolean pseudonymizationEnabled, String courseID) {
 		List<Pair<String, List<String>>> xApiStatements = new ArrayList<>();
 
 		for (Object mapping : studentMappings) {
@@ -93,17 +93,19 @@ public class ResultZipParser {
 						templateVariables.addAll(ir.getTemplateVariables());
 					}
 
-					String assessmentResultStatement = StatementBuilder.createAssessmentResultStatement(ar, user, am,
-							templateVariables).toString();
-					// append users email to statement
-					assessmentResultStatement += "*" + email;
+					JSONObject assessmentResultStatement = StatementBuilder.createAssessmentResultStatement(ar, user, am,
+							templateVariables);
+					String assessmentResultStatementStr = StatementBuilder.attachTokens(assessmentResultStatement, courseID, email);
+					
 					List<String> itemResultStatements = new ArrayList<>();
 					for (ItemResult ir : ar.getFilteredItemResults()) {
-						String xApiStatement = StatementBuilder.createItemResultStatement(ir, user, am,
-								templateVariables).toString();
-						itemResultStatements.add(xApiStatement.toString() + "*" + email);
+						JSONObject xApiStatement = StatementBuilder.createItemResultStatement(ir, user, am,
+								templateVariables);
+						String xApiStatementStr = StatementBuilder.attachTokens(xApiStatement, courseID, email);
+						
+						itemResultStatements.add(xApiStatementStr);
 					}
-					xApiStatements.add(Pair.of(assessmentResultStatement, itemResultStatements));
+					xApiStatements.add(Pair.of(assessmentResultStatementStr, itemResultStatements));
 				} catch (IOException e) {
 					e.printStackTrace();
 				} catch (Exception e) {
