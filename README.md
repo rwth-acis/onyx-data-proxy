@@ -52,8 +52,21 @@ Please make sure to add the following environment variables to the "docker run" 
 |OPAL_PASSWORD| Password of the Opal account used to access the API.                               |
 |COURSE_LIST  | Comma separated list of the course ids that should be monitored using the Opal API.|
 |PSEUDONYMIZATION_ENABLED | true or false depending on whether personal user information (email, name) should be hashed within the xAPI statement. |
+|DATA_STREAM_PERIOD | Fetching interval (in minutes) for new assessment results. Default value is 30 minutes. |
+|COURSE_ELEMENTS_UPDATE_PERIOD | Fetching interval (in minutes) for newly added e-tests that should be monitored. Default value is 60 minutes. |
 
-### Node Launcher Variables
+
+Onyx template variables in xAPI statements
+-----------------------
+
+The proxy can be configured to add specific template variables from the Onyx assessment to the context extensions of the xAPI statements.
+To enable this, set the docker environment variable TEMPLATE_VARIABLES_IN_STATEMENTS to true.
+If this feature is enabled, you can use the environment variable TEMPLATE_VARIABLES_IN_STATEMENTS_PREFIX to set a prefix.
+Then every template variable starting with this prefix will be part of the xAPI statement's context extensions.
+
+
+Node Launcher Variables
+-----------------------
 
 Set [las2peer node launcher options](https://github.com/rwth-acis/las2peer-Template-Project/wiki/L2pNodeLauncher-Commands#at-start-up) with these variables.
 The las2peer port is fixed at *9011*.

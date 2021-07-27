@@ -2,6 +2,7 @@ package i5.las2peer.services.onyxDataProxyService.xApi;
 
 import java.util.ArrayList;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.AssessmentResult;
@@ -11,8 +12,23 @@ import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.ResponseV
 import i5.las2peer.services.onyxDataProxyService.pojo.assessmentResult.TemplateVariable;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentMetadata;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentUser;
+import i5.las2peer.services.onyxDataProxyService.utils.StoreManagementHelper;
 
 public class StatementBuilder {
+	
+	/**
+	 * Whether template variables (from Onyx) with a specific prefix should 
+	 * be added to the xAPI statements automatically. The prefix can be
+	 * configured by using the templateVariablesInStatementsPrefix value.
+	 */
+	public static boolean templateVariablesInStatements = false;
+	
+	/**
+	 * If templateVariablesInStatements is set to true, then the prefix
+	 * given here is used to filter the template variables (from Onyx) 
+	 * that should be added to the xAPI statements automatically.
+	 */
+	public static String templateVariablesInStatementsPrefix;
 
 	public static JSONObject createActor(AssessmentUser user, String homePage) {
 		JSONObject actor = new JSONObject();
@@ -97,13 +113,8 @@ public class StatementBuilder {
 
 		result.put("score", score);
 		
-		for (TemplateVariable tv : templateVariables) {
-			if (tv.getIdentifier().equalsIgnoreCase("studienID")) {
-				JSONObject contextExtensions = new JSONObject();
-				contextExtensions.put("https://tech4comp.de/xapi/context/extensions/studienID", String.valueOf(tv.getValue().getValue()));
-			    context.put("extensions", contextExtensions);
-			}
-		}
+		JSONObject contextExtensions = StatementBuilder.getTemplateVariableContextExtensions(templateVariables);
+		context.put("extensions", contextExtensions);
 
 		xApiStatement.put("actor", actor);
 		xApiStatement.put("verb", verb);
@@ -183,13 +194,8 @@ public class StatementBuilder {
 		scoreExtensions.put("https://tech4comp.de/xapi/context/extensions/sessionStatus", ir.getSessionStatus());
 		result.put("extensions", scoreExtensions);
 		
-		for (TemplateVariable tv : templateVariables) {
-			if (tv.getIdentifier().equalsIgnoreCase("studienID")) {
-				JSONObject contextExtensions = new JSONObject();
-				contextExtensions.put("https://tech4comp.de/xapi/context/extensions/studienID", String.valueOf(tv.getValue().getValue()));
-			    context.put("extensions", contextExtensions);
-			}
-		}
+		JSONObject contextExtensions = StatementBuilder.getTemplateVariableContextExtensions(templateVariables);
+		context.put("extensions", contextExtensions);
 
 		xApiStatement.put("actor", actor);
 		xApiStatement.put("verb", verb);
@@ -198,6 +204,34 @@ public class StatementBuilder {
 		xApiStatement.put("context", context);
 		xApiStatement.put("timestamp", ir.getDateStamp() + "+02:00");
 		return xApiStatement;
+	}
+	
+	/**
+	 * Creates a JSONObject that can be used as context extensions and adds the 
+	 * studienID template variable and if configured also the ones starting with 
+	 * the prefix set in templateVariablesInStatementsPrefix.
+	 * @param templateVariables
+	 */
+	public static JSONObject getTemplateVariableContextExtensions(ArrayList<TemplateVariable> templateVariables) {
+		JSONObject contextExtensions = new JSONObject();
+		
+		for (TemplateVariable tv : templateVariables) {
+			String variableName = tv.getIdentifier();
+			String variableValue = String.valueOf(tv.getValue().getValue());
+			
+			if (variableName.equalsIgnoreCase("studienID")) {
+				contextExtensions.put("https://tech4comp.de/xapi/context/extensions/studienID", variableValue);
+			}
+			
+			if (templateVariablesInStatements) {
+				// every template variable with the given prefix should be added to the statements
+			    if (variableName.startsWith(templateVariablesInStatementsPrefix)) {
+				    contextExtensions.put("https://tech4comp.de/xapi/context/extensions/" + variableName, variableValue);
+			    }
+			}
+		}
+		
+		return contextExtensions;
 	}
 	
 	public static JSONObject createCourseNodeAccessStatisticStatement(String courseId, String nodeId, String nodeName,
@@ -254,5 +288,34 @@ public class StatementBuilder {
 		display.put("en-US", "viewed");
 		verb.put("display", display);
 		return verb;
+	}
+	
+	public static String attachTokens(JSONObject statement, String courseID, String userEmail) {
+		JSONArray tokens = StatementBuilder.getStoreTokens(courseID, userEmail);
+		
+		JSONObject result = new JSONObject();
+		result.put("statement", statement);
+		result.put("tokens", tokens);
+		return result.toString();
+	}
+	
+	/**
+	 * Helper function for determining the correct client tokens according to the store assignment.
+	 *
+	 * @param courseID Course to which the statement belongs
+	 * @param userEmail Mail of the user / mail that should be used for the client, if no store is assigned.
+	 * @return
+	 */
+	public static JSONArray getStoreTokens(String courseID, String userEmail) {
+		ArrayList<String> tokens = new ArrayList<>();
+		if (courseID != null && StoreManagementHelper.isStoreAssignmentEnabled() &&
+				StoreManagementHelper.getAssignment(courseID) != null) {
+			for (String storeId : StoreManagementHelper.getAssignment(courseID)) {
+				tokens.add(storeId);
+			}
+		} else {
+			tokens.add(userEmail);
+		}
+		return new JSONArray(tokens);
 	}
 }

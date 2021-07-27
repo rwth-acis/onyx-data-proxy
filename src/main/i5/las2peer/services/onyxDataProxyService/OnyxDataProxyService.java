@@ -53,7 +53,10 @@ import i5.las2peer.services.onyxDataProxyService.api.OpalAPI.courseNodeVO;
 import i5.las2peer.services.onyxDataProxyService.parser.AssessmentMetadataParser;
 import i5.las2peer.services.onyxDataProxyService.parser.ResultZipParser;
 import i5.las2peer.services.onyxDataProxyService.pojo.misc.AssessmentMetadata;
+import i5.las2peer.services.onyxDataProxyService.utils.StoreManagementHelper;
+import i5.las2peer.services.onyxDataProxyService.utils.StoreManagementParseException;
 import i5.las2peer.services.onyxDataProxyService.utils.ZipHelper;
+import i5.las2peer.services.onyxDataProxyService.xApi.StatementBuilder;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
@@ -85,13 +88,13 @@ public class OnyxDataProxyService extends RESTService {
 	
 	private final static L2pLogger logger = L2pLogger.getInstance(OnyxDataProxyService.class.getName());
 
-	private final static int OPAL_DATA_STREAM_PERIOD = 60; // Every minute
-	private final static int OPAL_STATISTICS_STREAM_PERIOD = 1; // every day
+	private int OPAL_DATA_STREAM_PERIOD = 30; // Every 30 minutes
+	private int OPAL_STATISTICS_STREAM_PERIOD = 1; // every day
 	
 	/**
 	 * How often the course elements map should be updated (in minutes).
 	 */
-	private final static int OPAL_COURSE_ELEMENTS_UPDATE_PERIOD = 15;
+	private int OPAL_COURSE_ELEMENTS_UPDATE_PERIOD = 60;
 	
 	private static ScheduledExecutorService dataStreamThread = null;
 	private static ScheduledExecutorService statisticsStreamThread = null;
@@ -131,6 +134,20 @@ public class OnyxDataProxyService extends RESTService {
 	 */
 	private boolean pseudonymizationEnabled;
 	
+	/**
+	 * Whether template variables (from Onyx) with a specific prefix should 
+	 * be added to the xAPI statements automatically. The prefix can be
+	 * configured by using the templateVariablesInStatementsPrefix value.
+	 */
+	private boolean templateVariablesInStatements;
+	
+	/**
+	 * If templateVariablesInStatements is set to true, then the prefix
+	 * given here is used to filter the template variables (from Onyx) 
+	 * that should be added to the xAPI statements automatically.
+	 */
+	private String templateVariablesInStatementsPrefix;
+	
 	private static OpalAPI api;
 	
 	/**
@@ -150,6 +167,9 @@ public class OnyxDataProxyService extends RESTService {
 	 */
 	public OnyxDataProxyService() {
 		setFieldValues(); // This sets the values of the configuration file
+		StatementBuilder.templateVariablesInStatements = this.templateVariablesInStatements;
+		StatementBuilder.templateVariablesInStatementsPrefix = this.templateVariablesInStatementsPrefix;
+		
 		if(this.apiEnabled) {
 			this.api = new OpalAPI(opalUsername, opalPassword, logger);
 		    this.updateCourseList();
@@ -165,6 +185,20 @@ public class OnyxDataProxyService extends RESTService {
 			    TimeZone.setDefault(TimeZone.getTimeZone("Europe/Berlin"));
 			    lastCheckedStatistics = System.currentTimeMillis();
 		    }
+		}
+		
+		// check if store assignment is enabled (i.e. the file exists)
+		if(StoreManagementHelper.isStoreAssignmentEnabled()) {
+			logger.info("Found store assignment file, enabling assignment...");
+			try {
+				StoreManagementHelper.loadAssignments();
+				logger.info("Store assignment is enabled.");
+			} catch (IOException e) {
+				logger.severe("An error occurred while loading the assignment from file.");
+				e.printStackTrace();
+			}
+		} else {
+			logger.info("Store assignment is not enabled.");
 		}
 	}
 
@@ -347,7 +381,7 @@ public class OnyxDataProxyService extends RESTService {
 		}
 		
 		// generate xAPI statements
-		List<Pair<String, List<String>>> xApiStatements = ResultZipParser.processResults(studentMappings, am, logger, pseudonymizationEnabled);
+		List<Pair<String, List<String>>> xApiStatements = ResultZipParser.processResults(studentMappings, am, logger, pseudonymizationEnabled, null);
 		// need to set context for monitoring
 		context = Context.get();
 		// send statements to MobSOS
@@ -406,7 +440,7 @@ public class OnyxDataProxyService extends RESTService {
 			context = Context.get();
 			dataStreamThread = Executors.newSingleThreadScheduledExecutor();
 			// start dataStreamThread a bit later than statisticsStreamThread (otherwise we get login problems)
-			dataStreamThread.scheduleAtFixedRate(new DataStreamThread(), 30, OPAL_DATA_STREAM_PERIOD, TimeUnit.SECONDS);
+			dataStreamThread.scheduleAtFixedRate(new DataStreamThread(), 1, OPAL_DATA_STREAM_PERIOD, TimeUnit.MINUTES);
 			statisticsStreamThread = Executors.newSingleThreadScheduledExecutor();
 			statisticsStreamThread.scheduleAtFixedRate(new StatisticsStreamThread(), 0, OPAL_STATISTICS_STREAM_PERIOD, TimeUnit.DAYS);
 			
@@ -418,6 +452,79 @@ public class OnyxDataProxyService extends RESTService {
 			return Response.status(Status.OK).entity("Thread started.").build();
 		} else {
 			return Response.status(Status.BAD_REQUEST).entity("Thread already running.").build();
+		}
+	}
+	
+	/**
+	 * Method for setting the assignments of Onyx courses to stores.
+	 * Takes a properties file containing the course IDs and a comma-separated list of store client IDs as key-value
+	 * pairs.
+	 *
+	 * @param storesInputStream Input stream of the passed properties file.
+	 *
+	 * @return Status message
+	 */
+	@POST
+	@Path("/setStoreAssignment")
+	@Produces(MediaType.TEXT_PLAIN)
+	@Consumes(MediaType.MULTIPART_FORM_DATA)
+	@ApiResponses(
+			value = { @ApiResponse(code = HttpURLConnection.HTTP_OK, message = "Updated store assignment."),
+					@ApiResponse(code = HttpURLConnection.HTTP_UNAUTHORIZED, message = "Authorization required."),
+					@ApiResponse(code = HttpURLConnection.HTTP_FORBIDDEN, message = "Access denied.") })
+	public Response setStoreAssignment(@FormDataParam("storeAssignment") InputStream storesInputStream) {
+	    if (Context.getCurrent().getMainAgent() instanceof AnonymousAgent) {
+		    return Response.status(Status.UNAUTHORIZED).entity("Authorization required.").build();
+	    }
+	    
+	    // check if agent sending the request uses the same email address that is used for the Opal API
+	 	UserAgentImpl u = (UserAgentImpl) Context.getCurrent().getMainAgent();
+	 	String uEmail = u.getEmail();
+	 	if(!uEmail.equals(this.opalUsername)) {
+	 		return Response.status(Status.FORBIDDEN).entity("Access denied.").build();
+	 	}
+
+		try {
+			StoreManagementHelper.updateAssignments(storesInputStream);
+			logger.info("Added store assignment.");
+			return Response.status(200).entity("Added store assignment with " +
+					StoreManagementHelper.numberOfAssignments() + " assignments.").build();
+		} catch (StoreManagementParseException e) {
+			return Response.status(HttpURLConnection.HTTP_INTERNAL_ERROR).entity(e.getMessage()).build();
+		}
+	}
+
+	/**
+	 * Method to disable the store assignment.
+	 *
+	 * @return Status message
+	 */
+	@POST
+	@Path("/disableStoreAssignment")
+	@Produces(MediaType.TEXT_PLAIN)
+	@ApiResponses(
+			value = { @ApiResponse(code = HttpURLConnection.HTTP_OK, message = "Disabled store assignment."),
+					@ApiResponse(code = HttpURLConnection.HTTP_UNAUTHORIZED, message = "Authorization required."),
+					@ApiResponse(code = HttpURLConnection.HTTP_FORBIDDEN, message = "Access denied."),
+					@ApiResponse(code = HttpURLConnection.HTTP_INTERNAL_ERROR, message = "Unable to disable store assignment.")})
+	public Response disableStoreAssignment() {
+	    if (Context.getCurrent().getMainAgent() instanceof AnonymousAgent) {
+		    return Response.status(Status.UNAUTHORIZED).entity("Authorization required.").build();
+	    }
+	    
+	    // check if agent sending the request uses the same email address that is used for the Opal API
+	 	UserAgentImpl u = (UserAgentImpl) Context.getCurrent().getMainAgent();
+	 	String uEmail = u.getEmail();
+	 	if(!uEmail.equals(this.opalUsername)) {
+	 		return Response.status(Status.FORBIDDEN).entity("Access denied.").build();
+	 	}
+
+		boolean success = StoreManagementHelper.removeAssignmentFile();
+		if(success) {
+			StoreManagementHelper.resetAssignment();
+			return Response.status(Status.OK).entity("Disabled store assignment.").build();
+		} else {
+			return Response.status(HttpURLConnection.HTTP_INTERNAL_ERROR).entity("Unable to disable store assignment.").build();
 		}
 	}
 	
