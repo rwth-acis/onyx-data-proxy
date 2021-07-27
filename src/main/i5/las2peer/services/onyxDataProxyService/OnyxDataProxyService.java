@@ -473,9 +473,16 @@ public class OnyxDataProxyService extends RESTService {
 					@ApiResponse(code = HttpURLConnection.HTTP_UNAUTHORIZED, message = "Authorization required."),
 					@ApiResponse(code = HttpURLConnection.HTTP_FORBIDDEN, message = "Access denied.") })
 	public Response setStoreAssignment(@FormDataParam("storeAssignment") InputStream storesInputStream) {
-	    /*if (Context.getCurrent().getMainAgent() instanceof AnonymousAgent) {
+	    if (Context.getCurrent().getMainAgent() instanceof AnonymousAgent) {
 		    return Response.status(Status.UNAUTHORIZED).entity("Authorization required.").build();
-	    }*/
+	    }
+	    
+	    // check if agent sending the request uses the same email address that is used for the Opal API
+	 	UserAgentImpl u = (UserAgentImpl) Context.getCurrent().getMainAgent();
+	 	String uEmail = u.getEmail();
+	 	if(!uEmail.equals(this.opalUsername)) {
+	 		return Response.status(Status.FORBIDDEN).entity("Access denied.").build();
+	 	}
 
 		try {
 			StoreManagementHelper.updateAssignments(storesInputStream);
@@ -501,9 +508,16 @@ public class OnyxDataProxyService extends RESTService {
 					@ApiResponse(code = HttpURLConnection.HTTP_FORBIDDEN, message = "Access denied."),
 					@ApiResponse(code = HttpURLConnection.HTTP_INTERNAL_ERROR, message = "Unable to disable store assignment.")})
 	public Response disableStoreAssignment() {
-	    /*if (Context.getCurrent().getMainAgent() instanceof AnonymousAgent) {
+	    if (Context.getCurrent().getMainAgent() instanceof AnonymousAgent) {
 		    return Response.status(Status.UNAUTHORIZED).entity("Authorization required.").build();
-	    }*/
+	    }
+	    
+	    // check if agent sending the request uses the same email address that is used for the Opal API
+	 	UserAgentImpl u = (UserAgentImpl) Context.getCurrent().getMainAgent();
+	 	String uEmail = u.getEmail();
+	 	if(!uEmail.equals(this.opalUsername)) {
+	 		return Response.status(Status.FORBIDDEN).entity("Access denied.").build();
+	 	}
 
 		boolean success = StoreManagementHelper.removeAssignmentFile();
 		if(success) {
